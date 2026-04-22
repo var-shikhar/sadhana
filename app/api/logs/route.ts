@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { dailyLogs } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { calculateAndStoreGrowthIndex } from "@/lib/growth/calculator";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -65,6 +66,9 @@ export async function POST(request: Request) {
       note,
     });
   }
+
+  // Auto-recalculate growth index after logging
+  await calculateAndStoreGrowthIndex(user.id, date);
 
   return NextResponse.json({ success: true });
 }

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { habits, userHabits, profiles } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -81,4 +82,21 @@ export async function GET() {
     }));
 
   return NextResponse.json(formatted);
+}
+
+export async function PATCH(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { userHabitId, archive } = await request.json();
+
+  if (archive) {
+    await db
+      .update(userHabits)
+      .set({ archivedAt: new Date() })
+      .where(and(eq(userHabits.id, userHabitId), eq(userHabits.userId, user.id)));
+  }
+
+  return NextResponse.json({ success: true });
 }
