@@ -1,37 +1,29 @@
 "use client";
 
-import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { QuickMode } from "@/components/reflection/QuickMode";
 import { DeepMode } from "@/components/reflection/DeepMode";
-import { useReflection } from "@/hooks/useReflection";
-import { todayDate } from "@/lib/utils";
+import { useReflection, useSubmitReflection } from "@/hooks/useReflection";
 import { type PitfallTag } from "@/types";
 import { OmGlyph } from "@/components/gurukul/OmGlyph";
 import { SanskritTerm } from "@/components/gurukul/SanskritTerm";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { LotusMandala } from "@/components/ornament/LotusMandala";
 import { cn } from "@/lib/utils";
-
-type Mode = "quick" | "deep";
+import { useUIStore } from "@/lib/stores/ui";
 
 export default function ReflectPage() {
   const { reflection, loading } = useReflection();
-  const [submitted, setSubmitted] = useState(false);
-  const [mode, setMode] = useState<Mode>("quick");
+  const submit = useSubmitReflection();
+  const mode = useUIStore((s) => s.reflectMode);
+  const setMode = useUIStore((s) => s.setReflectMode);
 
   async function handleQuickSubmit(tags: PitfallTag[], note: string) {
-    await fetch("/api/reflections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date: todayDate(),
-        mode: "quick",
-        quickTags: tags,
-        quickNote: note || null,
-      }),
+    await submit.mutateAsync({
+      mode: "quick",
+      quickTags: tags,
+      quickNote: note || null,
     });
-    setSubmitted(true);
   }
 
   async function handleDeepSubmit(data: {
@@ -40,19 +32,14 @@ export default function ReflectPage() {
     cbtFeeling: string;
     cbtReframe: string;
   }) {
-    await fetch("/api/reflections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: todayDate(), mode: "deep", ...data }),
-    });
-    setSubmitted(true);
+    await submit.mutateAsync({ mode: "deep", ...data });
   }
 
   if (loading) {
     return <p className="font-lyric-italic text-earth-mid py-6">Loading...</p>;
   }
 
-  if (submitted || reflection) {
+  if (reflection) {
     return (
       <div className="space-y-6 py-6 px-2 relative min-h-[60vh] bg-linear-to-b from-ivory-deep to-parchment rounded-lg">
         <LotusMandala
@@ -70,7 +57,7 @@ export default function ReflectPage() {
         <Card className="p-6 text-center bg-ivory/70 border-gold/40 relative">
           <p className="font-lyric text-xl text-ink">Today&apos;s reflection is complete.</p>
           <p className="font-lyric-italic text-sm text-earth-mid mt-2">
-            {reflection?.mode === "deep"
+            {reflection.mode === "deep"
               ? "Deep reflection — 25 pts"
               : "Quick reflection — 15 pts"}
           </p>

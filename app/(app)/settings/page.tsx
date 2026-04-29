@@ -1,72 +1,92 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
-import { type Profile, type UserHabit } from "@/types";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { type UserHabit } from "@/types";
+import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
+import { queryKeys } from "@/lib/query-keys";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { VastuGrid } from "@/components/ornament/VastuGrid";
 
+async function fetchHabits(): Promise<UserHabit[]> {
+  const res = await fetch("/api/user-habits");
+  if (!res.ok) throw new Error("Failed to load habits");
+  return res.json();
+}
+
 export default function SettingsPage() {
-  const [, setProfile] = useState<Profile | null>(null);
+  const { profile, loading: profileLoading } = useProfile();
+  const updateProfile = useUpdateProfile();
+  const router = useRouter();
+  const qc = useQueryClient();
+
   const [email, setEmail] = useState("");
-  const [habits, setHabits] = useState<UserHabit[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [morningTime, setMorningTime] = useState("07:00");
   const [eveningTime, setEveningTime] = useState("21:00");
-  const router = useRouter();
+
+  const habitsQuery = useQuery({
+    queryKey: queryKeys.habits(),
+    queryFn: fetchHabits,
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (userHabitId: string) => {
+      const res = await fetch("/api/user-habits", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userHabitId, archive: true }),
+      });
+      if (!res.ok) throw new Error("Failed to archive habit");
+    },
+    onMutate: async (userHabitId) => {
+      await qc.cancelQueries({ queryKey: queryKeys.habits() });
+      const previous = qc.getQueryData<UserHabit[]>(queryKeys.habits());
+      qc.setQueryData<UserHabit[]>(queryKeys.habits(), (old = []) =>
+        old.filter((h) => h.id !== userHabitId)
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(queryKeys.habits(), ctx.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.habits() });
+    },
+  });
 
   useEffect(() => {
-    async function load() {
-      const [profileRes, habitsRes, sessionRes] = await Promise.all([
-        fetch("/api/profile"),
-        fetch("/api/user-habits"),
-        authClient.getSession(),
-      ]);
-      const profileData = await profileRes.json();
-      const habitsData = await habitsRes.json();
-
-      if (profileData) {
-        setProfile(profileData);
-        setDisplayName(profileData.displayName);
-        setMorningTime(profileData.morningReminderTime || "07:00");
-        setEveningTime(profileData.eveningReminderTime || "21:00");
-      }
-      if (sessionRes.data?.user) setEmail(sessionRes.data.user.email);
-      setHabits(habitsData);
-      setLoading(false);
+    if (profile) {
+      setDisplayName(profile.displayName);
+      setMorningTime(profile.morningReminderTime || "07:00");
+      setEveningTime(profile.eveningReminderTime || "21:00");
     }
-    load();
+  }, [profile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const session = await authClient.getSession();
+      if (!cancelled && session.data?.user) setEmail(session.data.user.email);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  async function handleSaveProfile() {
-    setSaving(true);
-    await fetch("/api/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        displayName,
-        morningReminderTime: morningTime,
-        eveningReminderTime: eveningTime,
-      }),
+  function handleSaveProfile() {
+    updateProfile.mutate({
+      displayName,
+      morningReminderTime: morningTime,
+      eveningReminderTime: eveningTime,
     });
-    setSaving(false);
-  }
-
-  async function archiveHabit(userHabitId: string) {
-    await fetch("/api/user-habits", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userHabitId, archive: true }),
-    });
-    setHabits((prev) => prev.filter((h) => h.id !== userHabitId));
   }
 
   async function handleSignOut() {
@@ -75,13 +95,15 @@ export default function SettingsPage() {
     router.refresh();
   }
 
-  if (loading) {
+  if (profileLoading) {
     return (
       <div className="space-y-4 py-2">
         <p className="font-lyric-italic text-earth-mid">Loading...</p>
       </div>
     );
   }
+
+  const habits = habitsQuery.data ?? [];
 
   return (
     <div className="space-y-6 py-2 relative">
@@ -94,7 +116,6 @@ export default function SettingsPage() {
 
       <GoldRule width="section" />
 
-      {/* Profile */}
       <section className="space-y-3">
         <LabelTiny className="block">Profile</LabelTiny>
         <Card className="bg-ivory-deep border-gold/40">
@@ -112,8 +133,8 @@ export default function SettingsPage() {
               <Label>Email</Label>
               <Input value={email} disabled className="bg-ivory-deep border-gold/30" />
             </div>
-            <Button onClick={handleSaveProfile} disabled={saving}>
-              {saving ? "Saving..." : "Save Profile"}
+            <Button onClick={handleSaveProfile} disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? "Saving..." : "Save Profile"}
             </Button>
           </CardContent>
         </Card>
@@ -121,7 +142,6 @@ export default function SettingsPage() {
 
       <GoldRule width="section" />
 
-      {/* Notification Schedule */}
       <section className="space-y-3">
         <LabelTiny className="block">Reminders</LabelTiny>
         <Card className="bg-ivory-deep border-gold/40">
@@ -146,8 +166,8 @@ export default function SettingsPage() {
                 className="bg-ivory border-gold/40"
               />
             </div>
-            <Button onClick={handleSaveProfile} disabled={saving}>
-              {saving ? "Saving..." : "Save Schedule"}
+            <Button onClick={handleSaveProfile} disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? "Saving..." : "Save Schedule"}
             </Button>
           </CardContent>
         </Card>
@@ -155,7 +175,6 @@ export default function SettingsPage() {
 
       <GoldRule width="section" />
 
-      {/* My Habits */}
       <section className="space-y-3">
         <LabelTiny className="block">My Habits</LabelTiny>
         <Card className="bg-ivory-deep border-gold/40">
@@ -174,7 +193,12 @@ export default function SettingsPage() {
                         </p>
                       )}
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => archiveHabit(h.id)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => archiveMutation.mutate(h.id)}
+                      disabled={archiveMutation.isPending}
+                    >
                       Archive
                     </Button>
                   </div>

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Cormorant_Garamond, Eczar } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const ui = Inter({
@@ -43,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${ui.variable} ${lyric.variable} ${pressure.variable} font-sans antialiased`}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
