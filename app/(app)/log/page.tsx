@@ -4,15 +4,17 @@ import { useHabits } from "@/hooks/useHabits";
 import { HabitCard } from "@/components/habits/HabitCard";
 import { Separator } from "@/components/ui/separator";
 import { type PermaPillar, PERMA_LABELS } from "@/types";
+import { LabelTiny } from "@/components/gurukul/LabelTiny";
+import { GoldRule } from "@/components/gurukul/GoldRule";
+import { KolamGrid } from "@/components/ornament/KolamGrid";
 
 export default function LogPage() {
   const { userHabits, todayLogs, loading, toggleHabit } = useHabits();
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight">Daily Log</h1>
-        <p className="text-muted-foreground">Loading your habits...</p>
+      <div className="space-y-4 py-2">
+        <p className="font-lyric-italic text-earth-mid">Loading your habits...</p>
       </div>
     );
   }
@@ -36,25 +38,28 @@ export default function LogPage() {
   );
 
   function isCompleted(userHabitId: string): boolean {
-    return todayLogs.some(
-      (l) => l.userHabitId === userHabitId && l.completed
-    );
+    return todayLogs.some((l) => l.userHabitId === userHabitId && l.completed);
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Daily Log</h1>
-        <p className="text-sm text-muted-foreground">
-          {completedCount} of {totalCount} completed today
+    <div className="space-y-6 py-2 relative">
+      <KolamGrid className="absolute -top-4 right-0 pointer-events-none" opacity={0.10} />
+
+      <header className="text-center space-y-2 relative">
+        <LabelTiny>Today&apos;s offerings</LabelTiny>
+        <h1 className="font-lyric text-3xl text-ink">Walk gently through the list.</h1>
+        <p className="font-lyric-italic text-sm text-earth-deep">
+          {completedCount} of {totalCount} made
         </p>
-      </div>
+      </header>
+
+      <GoldRule width="section" />
 
       {grouped.map(([pillar, habits]) => (
         <div key={pillar} className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">
+          <LabelTiny className="block">
             {PERMA_LABELS[pillar as PermaPillar]}
-          </h2>
+          </LabelTiny>
           <div className="space-y-2">
             {habits.map((h) => (
               <HabitCard
@@ -72,11 +77,9 @@ export default function LogPage() {
 
       {avoidHabits.length > 0 && (
         <>
-          <Separator />
+          <Separator className="bg-gold/30" />
           <div className="space-y-2">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              Habits to Avoid
-            </h2>
+            <LabelTiny className="block">Habits to Avoid</LabelTiny>
             <div className="space-y-2">
               {avoidHabits.map((h) => (
                 <HabitCard

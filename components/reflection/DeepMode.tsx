@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { EMOTIONS, type Emotion } from "@/types";
+import { LabelTiny } from "@/components/gurukul/LabelTiny";
 
 interface DeepModeData {
   cbtEvent: string;
@@ -21,26 +21,26 @@ interface DeepModeProps {
 const CBT_STEPS = [
   {
     key: "cbtEvent" as const,
-    label: "What happened?",
-    prompt: "Describe the situation briefly.",
-    placeholder: "Today at work, I...",
+    label: "The event",
+    prompt: "What happened today?",
+    placeholder: "describe it plainly...",
   },
   {
     key: "cbtThought" as const,
-    label: "What did you tell yourself?",
-    prompt: "What was the belief or thought in that moment?",
+    label: "The thought",
+    prompt: "What did you tell yourself?",
     placeholder: "I thought that...",
   },
   {
     key: "cbtFeeling" as const,
-    label: "How did that make you feel?",
-    prompt: "Select the emotion(s) that resonate.",
+    label: "The feeling",
+    prompt: "What did your body carry?",
     placeholder: "",
   },
   {
     key: "cbtReframe" as const,
-    label: "Pratipaksha Bhavana",
-    prompt: "What would a wiser, calmer version of you say about this?",
+    label: "The reframe",
+    prompt: "What is more true?",
     placeholder: "A calmer me would say...",
   },
 ];
@@ -86,54 +86,58 @@ export function DeepMode({ onSubmit }: DeepModeProps) {
             key={i}
             className={cn(
               "h-1 flex-1 rounded-full transition-colors",
-              i <= step ? "bg-primary" : "bg-muted"
+              i <= step ? "bg-saffron" : "bg-ivory-deep border border-gold/30"
             )}
           />
         ))}
       </div>
 
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold">{currentStep.label}</h3>
-        <p className="text-sm text-muted-foreground">{currentStep.prompt}</p>
+      <div className="rounded border border-gold/30 bg-ivory/60 p-4 space-y-2">
+        <LabelTiny>{currentStep.label}</LabelTiny>
+        <p className="font-lyric-italic text-earth-deep text-sm">{currentStep.prompt}</p>
 
         {isEmotionStep ? (
-          <div className="space-y-4">
+          <div className="space-y-4 pt-1">
             <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">
-                Negative
-              </p>
+              <p className="label-tiny mb-2">Negative</p>
               <div className="flex flex-wrap gap-2">
-                {EMOTIONS.negative.map((emotion) => (
-                  <Badge
-                    key={emotion}
-                    variant={
-                      data.cbtFeeling.includes(emotion) ? "default" : "outline"
-                    }
-                    className="cursor-pointer px-3 py-1.5 text-sm"
-                    onClick={() => selectEmotion(emotion)}
-                  >
-                    {emotion}
-                  </Badge>
-                ))}
+                {EMOTIONS.negative.map((emotion) => {
+                  const sel = data.cbtFeeling.includes(emotion);
+                  return (
+                    <button
+                      type="button"
+                      key={emotion}
+                      onClick={() => selectEmotion(emotion)}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs transition-colors font-sans border-saffron",
+                        sel ? "bg-saffron/15 text-ink" : "bg-ivory text-earth-deep hover:bg-ivory-deep"
+                      )}
+                    >
+                      {emotion}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">
-                Positive
-              </p>
+              <p className="label-tiny mb-2">Positive</p>
               <div className="flex flex-wrap gap-2">
-                {EMOTIONS.positive.map((emotion) => (
-                  <Badge
-                    key={emotion}
-                    variant={
-                      data.cbtFeeling.includes(emotion) ? "default" : "outline"
-                    }
-                    className="cursor-pointer px-3 py-1.5 text-sm"
-                    onClick={() => selectEmotion(emotion)}
-                  >
-                    {emotion}
-                  </Badge>
-                ))}
+                {EMOTIONS.positive.map((emotion) => {
+                  const sel = data.cbtFeeling.includes(emotion);
+                  return (
+                    <button
+                      type="button"
+                      key={emotion}
+                      onClick={() => selectEmotion(emotion)}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs transition-colors font-sans border-sage",
+                        sel ? "bg-sage/20 text-ink" : "bg-ivory text-earth-deep hover:bg-ivory-deep"
+                      )}
+                    >
+                      {emotion}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -145,6 +149,7 @@ export function DeepMode({ onSubmit }: DeepModeProps) {
               setData((prev) => ({ ...prev, [currentStep.key]: e.target.value }))
             }
             rows={4}
+            className="bg-ivory border-gold/40"
           />
         )}
       </div>

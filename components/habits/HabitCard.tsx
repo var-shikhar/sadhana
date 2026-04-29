@@ -1,8 +1,8 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { HabitDot } from "@/components/gurukul/HabitDot";
 
 interface HabitCardProps {
   name: string;
@@ -22,33 +22,29 @@ export function HabitCard({
   return (
     <Card
       className={cn(
-        "flex cursor-pointer items-center gap-3 p-4 transition-all",
-        completed && "border-sage/30 bg-sage/5"
+        "flex flex-row cursor-pointer items-center gap-4 p-4 transition-all bg-ivory-deep border-gold/30",
+        completed && "bg-sage/10 border-sage/40"
       )}
       onClick={() => onToggle(!completed)}
     >
-      <Checkbox
-        checked={completed}
-        onCheckedChange={(checked) => onToggle(!!checked)}
-        className="h-5 w-5"
-      />
+      <HabitDot state={completed ? "complete" : "pending"} size={18} />
       <div className="flex-1">
         <p
           className={cn(
-            "font-medium",
-            completed && "text-muted-foreground line-through"
+            "font-lyric text-lg text-ink leading-tight",
+            completed && "text-earth-mid line-through decoration-earth-mid/40"
           )}
         >
-          {isAvoid ? `${name}` : name}
+          {name}
         </p>
-        {sankalpa && !completed && (
-          <p className="mt-0.5 text-xs text-muted-foreground italic">
+        {sankalpa && (
+          <p className="mt-0.5 font-lyric-italic text-xs text-earth-deep">
             {sankalpa}
           </p>
         )}
       </div>
       {isAvoid && (
-        <span className="text-xs font-medium text-amber">Avoid</span>
+        <span className="font-pressure-caps text-[10px] text-saffron">Avoid</span>
       )}
     </Card>
   );

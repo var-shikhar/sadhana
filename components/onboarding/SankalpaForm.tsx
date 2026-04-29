@@ -1,8 +1,6 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 
 interface SankalpaFormProps {
   habits: string[];
@@ -10,23 +8,44 @@ interface SankalpaFormProps {
   onChange: (habitName: string, sankalpa: string) => void;
 }
 
+const PLACEHOLDER_TEMPLATES = [
+  "After my morning chai, in the study room...",
+  "Right before bed, on my mat...",
+  "At my desk, after lunch...",
+  "On the balcony, at sunrise...",
+  "After brushing teeth, in the kitchen...",
+];
+
+function placeholderForIndex(i: number): string {
+  return PLACEHOLDER_TEMPLATES[i % PLACEHOLDER_TEMPLATES.length];
+}
+
 export function SankalpaForm({ habits, sankalpas, onChange }: SankalpaFormProps) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Set your Sankalpa — a firm intention of when and where you will practice
-        each habit. This triples your completion rate.
+      <p className="font-lyric-italic text-sm text-earth-deep">
+        A <span className="text-saffron">Sankalpa</span> is a firm intention —
+        when and where you will practice. Triples completion.
       </p>
-      {habits.map((habit) => (
-        <Card key={habit} className="space-y-2 p-4">
-          <Label className="font-medium">{habit}</Label>
-          <Input
-            placeholder={`e.g., "I will ${habit.toLowerCase()} at 6am in my bedroom"`}
-            value={sankalpas[habit] || ""}
-            onChange={(e) => onChange(habit, e.target.value)}
-          />
-        </Card>
-      ))}
+
+      <div className="space-y-3">
+        {habits.map((habit, i) => (
+          <div
+            key={habit}
+            className="rounded-lg border border-gold/40 bg-ivory/70 p-4 space-y-2"
+          >
+            <div className="font-pressure-caps text-[11px] text-saffron tracking-[3px]">
+              {habit}
+            </div>
+            <Input
+              value={sankalpas[habit] || ""}
+              onChange={(e) => onChange(habit, e.target.value)}
+              placeholder={placeholderForIndex(i)}
+              className="bg-ivory border-gold/40 placeholder:font-lyric-italic placeholder:text-earth-mid"
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

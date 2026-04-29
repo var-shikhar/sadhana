@@ -3,6 +3,7 @@
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { type PermaPillar, PERMA_LABELS, PERMA_DESCRIPTIONS } from "@/types";
+import { KolamGrid } from "@/components/ornament/KolamGrid";
 
 interface PillarPickerProps {
   selected: PermaPillar[];
@@ -20,27 +21,38 @@ export function PillarPicker({ selected, onToggle }: PillarPickerProps) {
           <Card
             key={pillar}
             className={cn(
-              "cursor-pointer p-4 transition-all",
+              "relative overflow-hidden cursor-pointer p-4 transition-all bg-ivory-deep border-gold/40 flex flex-col gap-2",
               isSelected
-                ? "border-primary bg-primary/10"
-                : "border-border hover:border-muted-foreground"
+                ? "border-saffron bg-saffron/10"
+                : "hover:border-gold"
             )}
             onClick={() => onToggle(pillar)}
           >
-            <div className="flex items-center gap-3">
+            <KolamGrid
+              className="absolute inset-0 pointer-events-none"
+              opacity={0.08}
+              size={120}
+            />
+            {isSelected && (
+              <span
+                aria-hidden="true"
+                className="absolute top-2 right-2 w-3 h-3 rounded-full bg-saffron"
+              />
+            )}
+            <div className="flex items-center gap-3 relative">
               <div
                 className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold",
+                  "flex h-10 w-10 items-center justify-center rounded-full font-pressure text-lg",
                   isSelected
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
+                    ? "bg-saffron text-ivory"
+                    : "bg-ivory text-earth-deep border border-gold/40"
                 )}
               >
                 {pillar}
               </div>
               <div>
-                <h3 className="font-semibold">{PERMA_LABELS[pillar]}</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="font-lyric text-lg text-ink">{PERMA_LABELS[pillar]}</h3>
+                <p className="font-lyric-italic text-sm text-earth-deep">
                   {PERMA_DESCRIPTIONS[pillar]}
                 </p>
               </div>

@@ -13,12 +13,12 @@ interface CalendarHeatmapProps {
   scores: GrowthScore[];
 }
 
-function getIntensity(score: number): string {
-  if (score === 0) return "bg-muted";
-  if (score < 25) return "bg-sage/20";
-  if (score < 50) return "bg-sage/40";
-  if (score < 75) return "bg-sage/60";
-  return "bg-sage/90";
+function getIntensityClasses(score: number): string {
+  if (score === 0) return "bg-ivory-deep";
+  if (score < 25) return "bg-parchment";
+  if (score < 50) return "bg-gold/60";
+  if (score < 75) return "bg-saffron/70";
+  return "bg-saffron";
 }
 
 export function CalendarHeatmap({ scores }: CalendarHeatmapProps) {
@@ -51,8 +51,8 @@ export function CalendarHeatmap({ scores }: CalendarHeatmapProps) {
               <div
                 key={format(day.date, "yyyy-MM-dd")}
                 className={cn(
-                  "h-3 w-3 rounded-sm transition-colors",
-                  getIntensity(day.score)
+                  "h-3 w-3 rounded-sm transition-colors border border-gold/20",
+                  getIntensityClasses(day.score)
                 )}
                 title={`${format(day.date, "MMM d")}: ${day.score} pts`}
               />
@@ -60,13 +60,13 @@ export function CalendarHeatmap({ scores }: CalendarHeatmapProps) {
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1 text-xs text-earth-mid">
         <span>Less</span>
-        <div className="h-3 w-3 rounded-sm bg-muted" />
-        <div className="h-3 w-3 rounded-sm bg-sage/20" />
-        <div className="h-3 w-3 rounded-sm bg-sage/40" />
-        <div className="h-3 w-3 rounded-sm bg-sage/60" />
-        <div className="h-3 w-3 rounded-sm bg-sage/90" />
+        <div className="h-3 w-3 rounded-sm bg-ivory-deep border border-gold/20" />
+        <div className="h-3 w-3 rounded-sm bg-parchment border border-gold/20" />
+        <div className="h-3 w-3 rounded-sm bg-gold/60 border border-gold/20" />
+        <div className="h-3 w-3 rounded-sm bg-saffron/70 border border-gold/20" />
+        <div className="h-3 w-3 rounded-sm bg-saffron border border-gold/20" />
         <span>More</span>
       </div>
     </div>

@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { db } from "@/lib/db";
 import { habits, userHabits, profiles } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = await request.json();
   const { habits: selectedHabits, completeOnboarding } = body as {
@@ -33,7 +27,7 @@ export async function POST(request: Request) {
     await db
       .insert(userHabits)
       .values({
-        userId: user.id,
+        userId: auth.userId,
         habitId: preset.id,
         sankalpa: selected.sankalpa,
       })
@@ -44,21 +38,15 @@ export async function POST(request: Request) {
     await db
       .update(profiles)
       .set({ onboardingCompleted: true, updatedAt: new Date() })
-      .where(eq(profiles.id, user.id));
+      .where(eq(profiles.id, auth.userId));
   }
 
   return NextResponse.json({ success: true });
 }
 
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const result = await db
     .select({
@@ -69,7 +57,7 @@ export async function GET() {
     .innerJoin(habits, eq(userHabits.habitId, habits.id))
     .where(
       and(
-        eq(userHabits.userId, user.id),
+        eq(userHabits.userId, auth.userId),
         eq(habits.isActive, true)
       )
     );
@@ -85,9 +73,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const { userHabitId, archive } = await request.json();
 
@@ -95,7 +82,7 @@ export async function PATCH(request: Request) {
     await db
       .update(userHabits)
       .set({ archivedAt: new Date() })
-      .where(and(eq(userHabits.id, userHabitId), eq(userHabits.userId, user.id)));
+      .where(and(eq(userHabits.id, userHabitId), eq(userHabits.userId, auth.userId)));
   }
 
   return NextResponse.json({ success: true });

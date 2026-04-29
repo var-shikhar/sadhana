@@ -7,6 +7,20 @@ import { PillarPicker } from "@/components/onboarding/PillarPicker";
 import { HabitPicker } from "@/components/onboarding/HabitPicker";
 import { SankalpaForm } from "@/components/onboarding/SankalpaForm";
 import { type PermaPillar } from "@/types";
+import { PressureLabel } from "@/components/gurukul/PressureLabel";
+
+function FlameIndicator({ filled }: { filled: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block flex-1 h-1.5 rounded-full transition-colors"
+      style={{
+        background: filled ? "#c46a1f" : "#f4ecd8",
+        border: "1px solid #d4a259",
+      }}
+    />
+  );
+}
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
@@ -71,7 +85,7 @@ export default function OnboardingPage() {
 
   const STEP_SUBTITLES = [
     "",
-    "Select 1-3 PERMA pillars to focus on first. You can always explore others later.",
+    "Select 1–3 PERMA pillars to focus on first. You can always explore others later.",
     "Choose 3 habits from your selected pillars to begin your daily practice.",
     "When and where will you do each habit? A firm resolve triples completion.",
   ];
@@ -80,20 +94,16 @@ export default function OnboardingPage() {
     <div className="mx-auto min-h-screen max-w-lg px-4 py-8">
       <div className="mb-8 flex items-center gap-2">
         {[1, 2, 3].map((s) => (
-          <div
-            key={s}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${
-              s <= step ? "bg-primary" : "bg-muted"
-            }`}
-          />
+          <FlameIndicator key={s} filled={s <= step} />
         ))}
       </div>
 
-      <div className="mb-6 space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">
-          {STEP_TITLES[step]}
-        </h1>
-        <p className="text-muted-foreground">{STEP_SUBTITLES[step]}</p>
+      <div className="mb-6 space-y-2 text-center">
+        <PressureLabel caps tone="saffron" className="text-xs">
+          Step {step} of 3
+        </PressureLabel>
+        <h1 className="font-lyric text-3xl text-ink">{STEP_TITLES[step]}</h1>
+        <p className="font-lyric-italic text-sm text-earth-deep">{STEP_SUBTITLES[step]}</p>
       </div>
 
       {step === 1 && (
@@ -137,7 +147,7 @@ export default function OnboardingPage() {
           </Button>
         ) : (
           <Button
-            className="flex-1"
+            className="flex-1 font-pressure-caps"
             disabled={loading}
             onClick={handleComplete}
           >

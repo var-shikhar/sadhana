@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import { type Profile, type UserHabit } from "@/types";
+import { LabelTiny } from "@/components/gurukul/LabelTiny";
+import { GoldRule } from "@/components/gurukul/GoldRule";
+import { VastuGrid } from "@/components/ornament/VastuGrid";
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [, setProfile] = useState<Profile | null>(null);
   const [email, setEmail] = useState("");
   const [habits, setHabits] = useState<UserHabit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,14 +22,13 @@ export default function SettingsPage() {
   const [morningTime, setMorningTime] = useState("07:00");
   const [eveningTime, setEveningTime] = useState("21:00");
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const [profileRes, habitsRes, { data: { user } }] = await Promise.all([
+      const [profileRes, habitsRes, sessionRes] = await Promise.all([
         fetch("/api/profile"),
         fetch("/api/user-habits"),
-        supabase.auth.getUser(),
+        authClient.getSession(),
       ]);
       const profileData = await profileRes.json();
       const habitsData = await habitsRes.json();
@@ -38,7 +39,7 @@ export default function SettingsPage() {
         setMorningTime(profileData.morningReminderTime || "07:00");
         setEveningTime(profileData.eveningReminderTime || "21:00");
       }
-      if (user) setEmail(user.email || "");
+      if (sessionRes.data?.user) setEmail(sessionRes.data.user.email);
       setHabits(habitsData);
       setLoading(false);
     }
@@ -69,113 +70,123 @@ export default function SettingsPage() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    await authClient.signOut();
     router.push("/login");
     router.refresh();
   }
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-4 py-2">
+        <p className="font-lyric-italic text-earth-mid">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+    <div className="space-y-6 py-2 relative">
+      <VastuGrid className="absolute -top-2 right-0 pointer-events-none" opacity={0.08} />
+
+      <header className="text-center space-y-2 relative">
+        <LabelTiny>The Practice</LabelTiny>
+        <h1 className="font-lyric text-3xl text-ink">Quiet adjustments.</h1>
+      </header>
+
+      <GoldRule width="section" />
 
       {/* Profile */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Profile</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Display Name</Label>
-            <Input
-              id="name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Email</Label>
-            <Input value={email} disabled />
-          </div>
-          <Button onClick={handleSaveProfile} disabled={saving}>
-            {saving ? "Saving..." : "Save Profile"}
-          </Button>
-        </CardContent>
-      </Card>
+      <section className="space-y-3">
+        <LabelTiny className="block">Profile</LabelTiny>
+        <Card className="bg-ivory-deep border-gold/40">
+          <CardContent className="space-y-4 pt-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Display Name</Label>
+              <Input
+                id="name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="bg-ivory border-gold/40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={email} disabled className="bg-ivory-deep border-gold/30" />
+            </div>
+            <Button onClick={handleSaveProfile} disabled={saving}>
+              {saving ? "Saving..." : "Save Profile"}
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
+
+      <GoldRule width="section" />
 
       {/* Notification Schedule */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Notification Schedule</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="morning">Morning Reminder</Label>
-            <Input
-              id="morning"
-              type="time"
-              value={morningTime}
-              onChange={(e) => setMorningTime(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="evening">Evening Reminder</Label>
-            <Input
-              id="evening"
-              type="time"
-              value={eveningTime}
-              onChange={(e) => setEveningTime(e.target.value)}
-            />
-          </div>
-          <Button onClick={handleSaveProfile} disabled={saving}>
-            {saving ? "Saving..." : "Save Schedule"}
-          </Button>
-        </CardContent>
-      </Card>
+      <section className="space-y-3">
+        <LabelTiny className="block">Reminders</LabelTiny>
+        <Card className="bg-ivory-deep border-gold/40">
+          <CardContent className="space-y-4 pt-6">
+            <div className="space-y-2">
+              <Label htmlFor="morning">Morning Reminder</Label>
+              <Input
+                id="morning"
+                type="time"
+                value={morningTime}
+                onChange={(e) => setMorningTime(e.target.value)}
+                className="bg-ivory border-gold/40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="evening">Evening Reminder</Label>
+              <Input
+                id="evening"
+                type="time"
+                value={eveningTime}
+                onChange={(e) => setEveningTime(e.target.value)}
+                className="bg-ivory border-gold/40"
+              />
+            </div>
+            <Button onClick={handleSaveProfile} disabled={saving}>
+              {saving ? "Saving..." : "Save Schedule"}
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
+
+      <GoldRule width="section" />
 
       {/* My Habits */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">My Habits</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {habits.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active habits.</p>
-          ) : (
-            <div className="space-y-3">
-              {habits.map((h) => (
-                <div key={h.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{h.habit.name}</p>
-                    {h.sankalpa && (
-                      <p className="text-xs text-muted-foreground italic">{h.sankalpa}</p>
-                    )}
+      <section className="space-y-3">
+        <LabelTiny className="block">My Habits</LabelTiny>
+        <Card className="bg-ivory-deep border-gold/40">
+          <CardContent className="pt-6">
+            {habits.length === 0 ? (
+              <p className="font-lyric-italic text-sm text-earth-mid">No active habits.</p>
+            ) : (
+              <div className="space-y-3">
+                {habits.map((h) => (
+                  <div key={h.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="font-lyric text-base text-ink">{h.habit.name}</p>
+                      {h.sankalpa && (
+                        <p className="font-lyric-italic text-xs text-earth-deep mt-0.5">
+                          {h.sankalpa}
+                        </p>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => archiveHabit(h.id)}>
+                      Archive
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => archiveHabit(h.id)}
-                  >
-                    Archive
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
-      <Separator />
+      <GoldRule width="section" />
 
-      {/* Sign Out */}
       <Button variant="outline" className="w-full" onClick={handleSignOut}>
         Sign Out
       </Button>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { db } from "@/lib/db";
 import { growthScores } from "@/lib/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
@@ -7,14 +7,8 @@ import { calculateAndStoreGrowthIndex } from "@/lib/growth/calculator";
 import { todayDate } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const from = request.nextUrl.searchParams.get("from");
   const to = request.nextUrl.searchParams.get("to");
@@ -25,7 +19,7 @@ export async function GET(request: NextRequest) {
       .from(growthScores)
       .where(
         and(
-          eq(growthScores.userId, user.id),
+          eq(growthScores.userId, auth.userId),
           gte(growthScores.date, from),
           lte(growthScores.date, to)
         )
@@ -36,7 +30,7 @@ export async function GET(request: NextRequest) {
   const [latest] = await db
     .select()
     .from(growthScores)
-    .where(eq(growthScores.userId, user.id))
+    .where(eq(growthScores.userId, auth.userId))
     .orderBy(desc(growthScores.date))
     .limit(1);
 
@@ -44,15 +38,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const result = await calculateAndStoreGrowthIndex(user.id, todayDate());
+  const result = await calculateAndStoreGrowthIndex(auth.userId, todayDate());
   return NextResponse.json(result);
 }

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
@@ -10,20 +11,16 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await auth.api.getSession({ headers: await headers() });
 
-  if (!user) {
+  if (!session) {
     redirect("/login");
   }
 
-  // Check onboarding status
   const [profile] = await db
     .select()
     .from(profiles)
-    .where(eq(profiles.id, user.id))
+    .where(eq(profiles.id, session.user.id))
     .limit(1);
 
   if (profile && !profile.onboardingCompleted) {

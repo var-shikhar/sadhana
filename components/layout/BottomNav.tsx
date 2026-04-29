@@ -8,12 +8,13 @@ const NAV_ITEMS = [
   { href: "/", label: "Home", icon: "home" },
   { href: "/log", label: "Log", icon: "check-square" },
   { href: "/reflect", label: "Reflect", icon: "feather" },
+  { href: "/archive", label: "Folio", icon: "book" },
   { href: "/analytics", label: "Viveka", icon: "bar-chart-2" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
 
 function NavIcon({ name, active }: { name: string; active: boolean }) {
-  const color = active ? "text-primary" : "text-muted-foreground";
+  const color = active ? "text-saffron" : "text-earth-mid";
 
   const icons: Record<string, React.ReactNode> = {
     home: (
@@ -41,6 +42,11 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
       </svg>
     ),
+    book: (
+      <svg className={cn("h-5 w-5", color)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h7a3 3 0 013 3v13a2 2 0 00-2-2H4V4zm16 0h-7a3 3 0 00-3 3v13a2 2 0 012-2h8V4z" />
+      </svg>
+    ),
   };
 
   return <>{icons[name]}</>;
@@ -50,7 +56,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gold/40 bg-ivory/95 backdrop-blur supports-backdrop-filter:bg-ivory/80">
       <div className="mx-auto flex max-w-lg items-center justify-around py-2">
         {NAV_ITEMS.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -60,7 +66,7 @@ export function BottomNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-0.5 px-3 py-1 text-xs transition-colors",
-                active ? "text-primary" : "text-muted-foreground"
+                active ? "text-saffron" : "text-earth-mid"
               )}
             >
               <NavIcon name={item.icon} active={active} />

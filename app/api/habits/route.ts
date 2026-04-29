@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { db } from "@/lib/db";
 import { habits } from "@/lib/db/schema";
 import { eq, or, and } from "drizzle-orm";
 
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const result = await db
     .select()
@@ -20,7 +14,7 @@ export async function GET() {
     .where(
       and(
         eq(habits.isActive, true),
-        or(eq(habits.isPreset, true), eq(habits.createdBy, user.id))
+        or(eq(habits.isPreset, true), eq(habits.createdBy, auth.userId))
       )
     );
 

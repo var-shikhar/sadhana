@@ -74,6 +74,30 @@ export const PITFALL_TAGS = [
 
 export type PitfallTag = (typeof PITFALL_TAGS)[number];
 
+export const PITFALL_TAG_FAMILIES = {
+  Restraint: [
+    "Procrastinated",
+    "Distracted",
+    "Emotional eating",
+    "Doom-scrolled",
+    "Skipped workout",
+  ],
+  Mind: [
+    "Poor sleep",
+    "Argued",
+    "Negative self-talk",
+    "Overwhelmed",
+    "Isolated",
+  ],
+} as const satisfies Record<string, readonly PitfallTag[]>;
+
+export type PitfallFamily = keyof typeof PITFALL_TAG_FAMILIES;
+
+export function familyForTag(tag: PitfallTag): PitfallFamily {
+  if ((PITFALL_TAG_FAMILIES.Restraint as readonly string[]).includes(tag)) return "Restraint";
+  return "Mind";
+}
+
 export const EMOTIONS = {
   negative: [
     "Anxious", "Angry", "Sad", "Frustrated", "Ashamed", "Guilty",

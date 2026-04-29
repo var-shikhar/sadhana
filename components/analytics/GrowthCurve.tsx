@@ -16,6 +16,10 @@ interface GrowthCurveProps {
   scores: GrowthScore[];
 }
 
+const SAFFRON = "#c46a1f";
+const GOLD = "#d4a259";
+const EARTH_DEEP = "#5c4022";
+
 export function GrowthCurve({ scores }: GrowthCurveProps) {
   const data = scores.map((s) => ({
     date: s.date,
@@ -26,7 +30,7 @@ export function GrowthCurve({ scores }: GrowthCurveProps) {
 
   if (data.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-48 items-center justify-center font-lyric-italic text-sm text-earth-mid">
         Start logging to see your growth curve
       </div>
     );
@@ -35,35 +39,36 @@ export function GrowthCurve({ scores }: GrowthCurveProps) {
   return (
     <ResponsiveContainer width="100%" height={240}>
       <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <CartesianGrid strokeDasharray="3 3" stroke={GOLD} strokeOpacity={0.3} />
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+          tick={{ fontSize: 11, fill: EARTH_DEEP, fontFamily: "var(--font-lyric-family)" }}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
-          tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+          tick={{ fontSize: 11, fill: EARTH_DEEP, fontFamily: "var(--font-lyric-family)" }}
           tickLine={false}
           axisLine={false}
           width={40}
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "8px",
-            color: "hsl(var(--foreground))",
+            backgroundColor: "#faf6ec",
+            border: `1px solid ${GOLD}`,
+            borderRadius: "4px",
+            color: "#1a1208",
+            fontFamily: "var(--font-sans)",
           }}
           formatter={(value) => [`${value}`, "Growth Index"]}
         />
         <Line
           type="monotone"
           dataKey="index"
-          stroke="#F59E0B"
+          stroke={SAFFRON}
           strokeWidth={2}
-          dot={{ r: 3, fill: "#F59E0B" }}
-          activeDot={{ r: 5 }}
+          dot={{ r: 3, fill: SAFFRON }}
+          activeDot={{ r: 5, fill: SAFFRON }}
         />
       </LineChart>
     </ResponsiveContainer>
