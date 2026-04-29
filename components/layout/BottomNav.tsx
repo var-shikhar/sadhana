@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: "home" },
+  { href: "/categories", label: "Plan", icon: "grid" },
   { href: "/log", label: "Log", icon: "check-square" },
   { href: "/reflect", label: "Reflect", icon: "feather" },
-  { href: "/archive", label: "Folio", icon: "book" },
   { href: "/analytics", label: "Viveka", icon: "bar-chart-2" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
@@ -45,6 +45,23 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
     book: (
       <svg className={cn("h-5 w-5", color)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h7a3 3 0 013 3v13a2 2 0 00-2-2H4V4zm16 0h-7a3 3 0 00-3 3v13a2 2 0 012-2h8V4z" />
+      </svg>
+    ),
+    lotus: (
+      <svg className={cn("h-5 w-5", color)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3 c-2 4 -2 7 0 10 c2 -3 2 -6 0 -10 z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 9 c1 4 4 5 7 4 c-1 -3 -4 -5 -7 -4 z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9 c-1 4 -4 5 -7 4 c1 -3 4 -5 7 -4 z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 14 c2 4 6 5 9 4 c-1 -3 -5 -5 -9 -4 z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 14 c-2 4 -6 5 -9 4 c1 -3 5 -5 9 -4 z" />
+      </svg>
+    ),
+    grid: (
+      <svg className={cn("h-5 w-5", color)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
       </svg>
     ),
   };

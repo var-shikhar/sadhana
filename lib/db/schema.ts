@@ -14,6 +14,39 @@ import {
 
 export const reflectionModeEnum = pgEnum("reflection_mode", ["quick", "deep"]);
 export const nudgeTypeEnum = pgEnum("nudge_type", ["emoji", "preset"]);
+export const vrataLengthEnum = pgEnum("vrata_length", [
+  "saptaha",         // 7 days
+  "trayivimshati",   // 21 days
+  "mandala",         // 40 days
+  "ashtottarashata", // 108 days
+]);
+export const vrataStatusEnum = pgEnum("vrata_status", [
+  "active",
+  "completed",
+  "abandoned",
+]);
+export const categoryColorEnum = pgEnum("category_color", [
+  "saffron",
+  "sage",
+  "indigo",
+  "earth",
+  "gold",
+]);
+export const goalShapeEnum = pgEnum("goal_shape", [
+  "daily",
+  "weekly",
+  "by_date",
+]);
+export const goalStatusEnum = pgEnum("goal_status", [
+  "active",
+  "paused",
+  "completed",
+  "abandoned",
+]);
+export const goalSourceEnum = pgEnum("goal_source", [
+  "user",
+  "suggestion",
+]);
 
 // ---------- Better-Auth tables ----------
 
@@ -192,3 +225,79 @@ export const nudges = pgTable("nudges", {
   sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow(),
   readAt: timestamp("read_at", { withTimezone: true }),
 });
+
+export const vratas = pgTable("vratas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  lengthName: vrataLengthEnum("length_name").notNull(),
+  baseDays: integer("base_days").notNull(),
+  extensionDays: integer("extension_days").notNull().default(0),
+  boundHabitIds: uuid("bound_habit_ids").array().notNull().default([]),
+  sankalpa: text("sankalpa"),
+  startedDate: date("started_date").notNull(),
+  completedDate: date("completed_date"),
+  abandonedDate: date("abandoned_date"),
+  status: vrataStatusEnum("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const goals = pgTable("goals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  categoryId: uuid("category_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  shape: goalShapeEnum("shape").notNull(),
+  // shape-specific
+  weeklyTarget: integer("weekly_target"),
+  totalTarget: integer("total_target"),
+  deadlineDate: date("deadline_date"),
+  // common
+  source: goalSourceEnum("source").notNull().default("user"),
+  status: goalStatusEnum("status").notNull().default("active"),
+  startedDate: date("started_date").notNull(),
+  completedDate: date("completed_date"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const goalLogs = pgTable("goal_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  goalId: uuid("goal_id").notNull(),
+  userId: text("user_id").notNull(),
+  date: date("date").notNull(),
+  value: integer("value").notNull().default(1),
+  note: text("note"),
+  loggedAt: timestamp("logged_at", { withTimezone: true }).defaultNow(),
+});
+
+export const categories = pgTable("categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  icon: text("icon").notNull().default("circle"), // emoji or lucide name
+  color: categoryColorEnum("color").notNull().default("saffron"),
+  priority: integer("priority").notNull().default(3), // 1=highest, 5=lowest
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const vrataSlips = pgTable(
+  "vrata_slips",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    vrataId: uuid("vrata_id")
+      .references(() => vratas.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: text("user_id").notNull(),
+    date: date("date").notNull(),
+    reason: text("reason"),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [unique().on(table.vrataId, table.date)]
+);

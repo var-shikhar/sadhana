@@ -20,4 +20,16 @@ export const queryKeys = {
     ["growth", "history", from, to] as const,
 
   profile: () => ["profile"] as const,
+
+  vrata: () => ["vrata"] as const,
+  mala: () => ["mala"] as const,
+
+  categories: () => ["categories"] as const,
+  category: (id: string) => ["categories", id] as const,
+
+  goals: () => ["goals"] as const,
+  goalsByCategory: (categoryId: string) => ["goals", "category", categoryId] as const,
+  goal: (id: string) => ["goals", "id", id] as const,
+  goalSuggestions: (categoryTitle: string) =>
+    ["goalSuggestions", categoryTitle.toLowerCase()] as const,
 };

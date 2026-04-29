@@ -155,6 +155,313 @@ export function getGrowthLevel(index: number): string {
   return level?.label ?? "Beginning your Sadhana";
 }
 
+// ── Categories (Phase 1: areas of life the user wants to focus on) ──
+export type CategoryColor =
+  | "saffron"
+  | "sage"
+  | "indigo"
+  | "earth"
+  | "gold";
+
+export const CATEGORY_COLORS: Array<{ value: CategoryColor; hex: string; label: string }> = [
+  { value: "saffron", hex: "#c46a1f", label: "Saffron" },
+  { value: "sage",    hex: "#7a8b5c", label: "Sage" },
+  { value: "indigo",  hex: "#1a1235", label: "Indigo" },
+  { value: "earth",   hex: "#5c4022", label: "Earth" },
+  { value: "gold",    hex: "#d4a259", label: "Gold" },
+];
+
+/** A small, curated icon set so users don't get lost in emoji or icon-search overhead */
+export const CATEGORY_ICONS = [
+  "🪷", "🔥", "🌿", "🕉️", "📚",
+  "💪", "🧘", "✍️", "🤝", "🌅",
+  "🍃", "💼", "🎨", "🛌", "💧",
+] as const;
+
+export interface Category {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  icon: string;
+  color: CategoryColor;
+  priority: number;     // 1..5 — 1 is highest
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Starter categories the system suggests on first run. The user can adopt
+ *  one or many, edit any, or skip and create their own. */
+export const STARTER_CATEGORIES: Array<{
+  title: string;
+  description: string;
+  icon: string;
+  color: CategoryColor;
+  priority: number;
+}> = [
+  {
+    title: "Health",
+    description: "Body, sleep, food, movement.",
+    icon: "💪",
+    color: "saffron",
+    priority: 1,
+  },
+  {
+    title: "Work / Craft",
+    description: "Focus, output, learning your trade.",
+    icon: "💼",
+    color: "indigo",
+    priority: 2,
+  },
+  {
+    title: "Relationships",
+    description: "Family, friends, presence with the people you love.",
+    icon: "🤝",
+    color: "sage",
+    priority: 2,
+  },
+  {
+    title: "Inner Practice",
+    description: "Meditation, reflection, prayer — the inward turn.",
+    icon: "🪷",
+    color: "gold",
+    priority: 1,
+  },
+  {
+    title: "Rest / Play",
+    description: "What restores you. Without this, the others crumble.",
+    icon: "🌅",
+    color: "earth",
+    priority: 3,
+  },
+];
+
+// ── Goals (Phase 2: specific things inside a category) ──
+export type GoalShape = "daily" | "weekly" | "by_date";
+export type GoalStatus = "active" | "paused" | "completed" | "abandoned";
+export type GoalSource = "user" | "suggestion";
+
+export const GOAL_SHAPE_DEFS: Array<{
+  shape: GoalShape;
+  label: string;
+  description: string;
+  example: string;
+}> = [
+  {
+    shape: "daily",
+    label: "Daily practice",
+    description: "Something you do every day. Tracked as kept-or-not per day.",
+    example: "Meditate 10 minutes",
+  },
+  {
+    shape: "weekly",
+    label: "Weekly target",
+    description: "A count to hit each week. Resets every Monday.",
+    example: "Exercise 3 times this week",
+  },
+  {
+    shape: "by_date",
+    label: "By-date goal",
+    description: "A total to reach by a deadline. Counts up over time.",
+    example: "Read 12 books by Dec 31",
+  },
+];
+
+export interface Goal {
+  id: string;
+  userId: string;
+  categoryId: string;
+  title: string;
+  description: string | null;
+  shape: GoalShape;
+  weeklyTarget: number | null;
+  totalTarget: number | null;
+  deadlineDate: string | null;
+  source: GoalSource;
+  status: GoalStatus;
+  startedDate: string;
+  completedDate: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GoalLog {
+  id: string;
+  goalId: string;
+  userId: string;
+  date: string;
+  value: number;
+  note: string | null;
+  loggedAt: string;
+}
+
+export interface GoalProgress {
+  /** True if today's log exists with value > 0 (daily shape) */
+  todayDone?: boolean;
+  /** Consecutive days back from today where the goal was kept (daily shape) */
+  streak?: number;
+  /** Sum of this ISO week's logs (weekly shape) */
+  weekTotal?: number;
+  /** Sum of all logs (by_date shape) */
+  totalSoFar?: number;
+  /** Days remaining until deadline (by_date shape) */
+  daysRemaining?: number;
+  /** Whether the goal's target is met (computed per shape) */
+  isMet: boolean;
+}
+
+export interface GoalWithProgress extends Goal {
+  progress: GoalProgress;
+}
+
+/**
+ * System-suggested starter goals keyed by **lowercased category title**.
+ * The user picks any subset; adopted goals are created with source="suggestion".
+ * For user-created categories that don't match a starter title, the
+ * suggestions array will be empty and the user sees only the "make your own"
+ * surface.
+ */
+export const GOAL_SUGGESTIONS: Record<
+  string,
+  Array<{
+    title: string;
+    description: string;
+    shape: GoalShape;
+    weeklyTarget?: number;
+    totalTarget?: number;
+    deadlineHint?: string; // human label e.g. "by year-end"
+  }>
+> = {
+  health: [
+    { title: "Drink 2L water", description: "Spread across the day", shape: "daily" },
+    { title: "Sleep by 11pm", description: "Phone away by 10:30", shape: "daily" },
+    { title: "Mindful breathing 5 min", description: "Slows the day down", shape: "daily" },
+    { title: "Exercise", description: "Any form — walk, run, gym, yoga", shape: "weekly", weeklyTarget: 3 },
+    { title: "Cook from scratch", description: "Real food. Skip ultraprocessed.", shape: "weekly", weeklyTarget: 4 },
+  ],
+  "work / craft": [
+    { title: "Deep work block (90 min)", description: "Phone in another room", shape: "daily" },
+    { title: "No phone, first hour", description: "The morning belongs to you", shape: "daily" },
+    { title: "Ship one meaningful change", description: "Small or large — but real", shape: "weekly", weeklyTarget: 5 },
+    { title: "Read one industry article", description: "Outside your bubble", shape: "weekly", weeklyTarget: 3 },
+  ],
+  relationships: [
+    { title: "Express appreciation to one person", description: "By word, not text", shape: "daily" },
+    { title: "Call family", description: "Voice, not chat", shape: "weekly", weeklyTarget: 2 },
+    { title: "Phone-free meal", description: "With anyone, even alone", shape: "weekly", weeklyTarget: 5 },
+  ],
+  "inner practice": [
+    { title: "Meditate 10 minutes", description: "Sit, breathe, return", shape: "daily" },
+    { title: "Read 1 page of scripture", description: "Slowly. With attention.", shape: "daily" },
+    { title: "Long sit (30+ min)", description: "Once a week", shape: "weekly", weeklyTarget: 1 },
+    { title: "Read full Bhagavad Gita", description: "By a chosen date", shape: "by_date", totalTarget: 700, deadlineHint: "by year-end" },
+  ],
+  "rest / play": [
+    { title: "30 minutes of unstructured time", description: "No phone. No goal.", shape: "daily" },
+    { title: "One day of true rest", description: "No work. No screens (mostly).", shape: "weekly", weeklyTarget: 1 },
+    { title: "Time outdoors", description: "Sun, trees, walking", shape: "weekly", weeklyTarget: 4 },
+  ],
+};
+
+// ── Vrata (the active vow) ──
+export type VrataLengthName =
+  | "saptaha"
+  | "trayivimshati"
+  | "mandala"
+  | "ashtottarashata";
+
+export type VrataStatus = "active" | "completed" | "abandoned";
+
+export const VRATA_LENGTHS: Array<{
+  name: VrataLengthName;
+  baseDays: number;
+  english: string;
+  description: string;
+}> = [
+  {
+    name: "saptaha",
+    baseDays: 7,
+    english: "Seven Days",
+    description: "A short vow — a fortnight's worth of resolve",
+  },
+  {
+    name: "trayivimshati",
+    baseDays: 21,
+    english: "Twenty-one Days",
+    description: "Long enough for a habit to take root",
+  },
+  {
+    name: "mandala",
+    baseDays: 40,
+    english: "Forty Days",
+    description: "The traditional mandala — long, focused practice",
+  },
+  {
+    name: "ashtottarashata",
+    baseDays: 108,
+    english: "One Hundred Eight",
+    description: "The full mala — a sustained discipline",
+  },
+];
+
+export interface Vrata {
+  id: string;
+  userId: string;
+  lengthName: VrataLengthName;
+  baseDays: number;
+  extensionDays: number;
+  boundHabitIds: string[];
+  sankalpa: string | null;
+  startedDate: string;       // YYYY-MM-DD
+  completedDate: string | null;
+  abandonedDate: string | null;
+  status: VrataStatus;
+  createdAt: string;
+}
+
+export interface VrataSlip {
+  id: string;
+  vrataId: string;
+  userId: string;
+  date: string;
+  reason: string | null;
+  acknowledgedAt: string | null;
+  createdAt: string;
+}
+
+export interface VrataState {
+  active: Vrata | null;
+  /** Days completed (where ALL bound habits were marked done) */
+  daysCompleted: number;
+  /** Total target = baseDays + extensionDays */
+  daysTarget: number;
+  /** Slip records */
+  slips: VrataSlip[];
+  /** History of completed/abandoned vratas */
+  history: Vrata[];
+  /** Unacknowledged slips — surface as prayaschitta banner */
+  unacknowledgedSlips: VrataSlip[];
+}
+
+export interface MalaState {
+  /** Total days walked across the lifetime of the account */
+  totalDaysWalked: number;
+  /** Most recent 27 days, oldest → newest, of the upamala */
+  recent27: Array<"filled" | "slip" | "future">;
+  /** Modulo 108 — beads filled in the current mala */
+  currentMalaBeads: number;
+}
+
+export interface TapasState {
+  /** 0..1 — how bright the flame is right now, derived from recent practice density */
+  brightness: number;
+  /** Last 7 days of completion (1.0 if all bound habits done that day, partial if some) */
+  recent7: number[];
+}
+
 // ── Profile ──
 export interface Profile {
   id: string;

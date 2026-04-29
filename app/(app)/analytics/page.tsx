@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GrowthCurve } from "@/components/analytics/GrowthCurve";
@@ -47,6 +48,24 @@ export default function AnalyticsPage() {
       </header>
 
       <GoldRule width="section" />
+
+      {/* Quick links to Week + Folio (no longer in primary nav) */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link
+          href="/week"
+          className="rounded border border-gold/40 bg-ivory-deep p-3 text-center hover:bg-saffron/5 transition-colors"
+        >
+          <div className="font-pressure-caps text-[10px] text-saffron">Saptaha</div>
+          <div className="font-lyric text-base text-ink mt-0.5">This week</div>
+        </Link>
+        <Link
+          href="/archive"
+          className="rounded border border-gold/40 bg-ivory-deep p-3 text-center hover:bg-saffron/5 transition-colors"
+        >
+          <div className="font-pressure-caps text-[10px] text-saffron">Folio</div>
+          <div className="font-lyric text-base text-ink mt-0.5">Past reflections</div>
+        </Link>
+      </div>
 
       <section className="space-y-3">
         <LabelTiny className="block">This week&apos;s orbit</LabelTiny>
