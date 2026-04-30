@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useVrata, useDeclareVrata, useAbandonVrata } from "@/hooks/useVrata";
-import { useHabits } from "@/hooks/useHabits";
+import { useTodayGoals } from "@/hooks/useTodayGoals";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { PressureLabel } from "@/components/gurukul/PressureLabel";
 import { GoldRule } from "@/components/gurukul/GoldRule";
@@ -18,14 +18,14 @@ import { VRATA_LENGTHS, type VrataLengthName } from "@/types";
 
 export default function VrataPage() {
   const { state, loading } = useVrata();
-  const { userHabits, loading: habitsLoading } = useHabits();
+  const { goals: todayGoals, loading: goalsLoading } = useTodayGoals();
   const router = useRouter();
   const declareMutation = useDeclareVrata();
   const abandonMutation = useAbandonVrata();
 
   const [step, setStep] = useState<"length" | "bind" | "vow">("length");
   const [lengthName, setLengthName] = useState<VrataLengthName | null>(null);
-  const [boundHabitIds, setBoundHabitIds] = useState<string[]>([]);
+  const [boundGoalIds, setBoundGoalIds] = useState<string[]>([]);
   const [sankalpa, setSankalpa] = useState("");
   const [confirmAbandon, setConfirmAbandon] = useState(false);
 
@@ -34,7 +34,13 @@ export default function VrataPage() {
     [lengthName]
   );
 
-  if (loading || habitsLoading) {
+  // Only daily-shape goals make sense to bind to a vrata (the "every day" pattern)
+  const dailyGoals = useMemo(
+    () => todayGoals.filter((g) => g.shape === "daily"),
+    [todayGoals]
+  );
+
+  if (loading || goalsLoading) {
     return (
       <p className="font-lyric-italic text-earth-mid py-6">Loading…</p>
     );
@@ -44,8 +50,8 @@ export default function VrataPage() {
   if (state?.active) {
     const active = state.active;
     const activeLength = VRATA_LENGTHS.find((l) => l.name === active.lengthName);
-    const boundHabits = userHabits.filter((h) =>
-      active.boundHabitIds.includes(h.id)
+    const boundGoals = todayGoals.filter((g) =>
+      active.boundHabitIds.includes(g.id)
     );
 
     return (
@@ -93,20 +99,29 @@ export default function VrataPage() {
 
         <Card className="bg-ivory-deep border-gold/40">
           <CardContent className="p-5 space-y-3">
-            <LabelTiny className="block">Bound offerings</LabelTiny>
+            <LabelTiny className="block">Bound goals</LabelTiny>
             <ul className="space-y-1.5">
-              {boundHabits.map((h) => (
-                <li
-                  key={h.id}
-                  className="font-lyric text-base text-ink flex items-center gap-2"
-                >
-                  <span
-                    className="inline-block w-2 h-2 rounded-full bg-saffron"
-                    aria-hidden
-                  />
-                  {h.habit.name}
+              {boundGoals.length === 0 ? (
+                <li className="font-lyric-italic text-sm text-earth-mid">
+                  Bound goals were removed. Abandon and start fresh.
                 </li>
-              ))}
+              ) : (
+                boundGoals.map((g) => (
+                  <li
+                    key={g.id}
+                    className="font-lyric text-base text-ink flex items-center gap-2"
+                  >
+                    <span
+                      className="inline-block w-2 h-2 rounded-full bg-saffron"
+                      aria-hidden
+                    />
+                    <span>{g.title}</span>
+                    <span className="font-pressure-caps text-[8px] text-earth-mid ml-auto">
+                      {g.categoryTitle}
+                    </span>
+                  </li>
+                ))
+              )}
             </ul>
           </CardContent>
         </Card>
@@ -160,10 +175,10 @@ export default function VrataPage() {
   }
 
   // No active vrata — declaration wizard
-  const canBind = userHabits.length > 0;
+  const canBind = dailyGoals.length > 0;
 
-  function toggleHabit(id: string) {
-    setBoundHabitIds((prev) =>
+  function toggleGoal(id: string) {
+    setBoundGoalIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }
@@ -171,7 +186,7 @@ export default function VrataPage() {
   function reset() {
     setStep("length");
     setLengthName(null);
-    setBoundHabitIds([]);
+    setBoundGoalIds([]);
     setSankalpa("");
   }
 
@@ -257,37 +272,37 @@ export default function VrataPage() {
       {step === "bind" && (
         <div className="space-y-4">
           <PressureLabel caps tone="saffron" className="text-xs block text-center">
-            Step 2 · Bind your offerings
+            Step 2 · Bind your daily goals
           </PressureLabel>
           {!canBind ? (
             <Card className="bg-ivory-deep border-gold/40">
               <CardContent className="p-5 text-center space-y-2">
                 <p className="font-lyric-italic text-sm text-earth-deep">
-                  You have no active offerings to bind. Visit the log to set them
-                  first.
+                  You have no daily-shape goals yet. A vrata binds *daily*
+                  practices — set up a category and a daily goal first.
                 </p>
-                <Link href="/log">
-                  <Button variant="outline" size="sm">Go to Log</Button>
+                <Link href="/categories">
+                  <Button variant="outline" size="sm">Go to Plan</Button>
                 </Link>
               </CardContent>
             </Card>
           ) : (
             <>
               <p className="font-lyric-italic text-sm text-earth-deep">
-                Each day you must keep <em>all</em> bound offerings. Missing any one
-                is a slip.
+                Each day you must keep <em>all</em> bound goals. Missing any one
+                is a slip — and the vrata adds 2 days.
               </p>
               <div className="space-y-2">
-                {userHabits.map((h) => {
-                  const sel = boundHabitIds.includes(h.id);
+                {dailyGoals.map((g) => {
+                  const sel = boundGoalIds.includes(g.id);
                   return (
                     <Card
-                      key={h.id}
+                      key={g.id}
                       className={cn(
                         "cursor-pointer flex flex-row items-center gap-3 px-4 py-3 transition-all bg-ivory-deep border-gold/30",
                         sel ? "border-saffron bg-saffron/10" : "hover:border-gold"
                       )}
-                      onClick={() => toggleHabit(h.id)}
+                      onClick={() => toggleGoal(g.id)}
                     >
                       <span
                         className={cn(
@@ -297,9 +312,14 @@ export default function VrataPage() {
                             : "border-saffron"
                         )}
                       />
-                      <span className="font-lyric text-base text-ink">
-                        {h.habit.name}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-lyric text-base text-ink leading-tight">
+                          {g.title}
+                        </div>
+                        <div className="font-pressure-caps text-[9px] text-earth-mid">
+                          {g.categoryTitle}
+                        </div>
+                      </div>
                     </Card>
                   );
                 })}
@@ -312,7 +332,7 @@ export default function VrataPage() {
             </Button>
             <Button
               className="flex-1"
-              disabled={!canBind || boundHabitIds.length === 0}
+              disabled={!canBind || boundGoalIds.length === 0}
               onClick={() => setStep("vow")}
             >
               Continue
@@ -332,19 +352,22 @@ export default function VrataPage() {
               <p className="font-lyric-italic text-sm text-earth-deep text-center">
                 For the next <strong className="text-saffron">{lengthDef.baseDays}</strong> days
                 ({lengthDef.english.toLowerCase()}), I commit to keeping these{" "}
-                {boundHabitIds.length}{" "}
-                {boundHabitIds.length === 1 ? "offering" : "offerings"}.
+                {boundGoalIds.length}{" "}
+                {boundGoalIds.length === 1 ? "goal" : "goals"}.
               </p>
               <ul className="space-y-1">
-                {userHabits
-                  .filter((h) => boundHabitIds.includes(h.id))
-                  .map((h) => (
+                {dailyGoals
+                  .filter((g) => boundGoalIds.includes(g.id))
+                  .map((g) => (
                     <li
-                      key={h.id}
+                      key={g.id}
                       className="font-lyric text-base text-ink flex items-center gap-2"
                     >
                       <span className="w-2 h-2 rounded-full bg-saffron" aria-hidden />
-                      {h.habit.name}
+                      <span>{g.title}</span>
+                      <span className="font-pressure-caps text-[8px] text-earth-mid ml-auto">
+                        {g.categoryTitle}
+                      </span>
                     </li>
                   ))}
               </ul>
@@ -386,7 +409,7 @@ export default function VrataPage() {
                 declareMutation.mutate(
                   {
                     lengthName: lengthDef.name,
-                    boundHabitIds,
+                    boundHabitIds: boundGoalIds,
                     sankalpa: sankalpa.trim() || null,
                   },
                   {

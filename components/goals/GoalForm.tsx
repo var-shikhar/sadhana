@@ -44,6 +44,7 @@ export function GoalForm({
   );
 
   // If parent passes a fresh initial after mount, sync (used for edit-mode)
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (initial?.title !== undefined) setTitle(initial.title ?? "");
     if (initial?.description !== undefined) setDescription(initial.description ?? "");
@@ -55,6 +56,7 @@ export function GoalForm({
     if (initial?.deadlineDate !== undefined && initial.deadlineDate !== null)
       setDeadlineDate(initial.deadlineDate);
   }, [initial]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

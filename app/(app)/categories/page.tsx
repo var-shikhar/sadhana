@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
-import { PressureLabel } from "@/components/gurukul/PressureLabel";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { GuidedExplainer } from "@/components/gurukul/GuidedExplainer";
 import { CategoryCard } from "@/components/categories/CategoryCard";
@@ -19,7 +17,6 @@ import { cn } from "@/lib/utils";
 type Mode = "browse" | "create" | "starter";
 
 export default function CategoriesPage() {
-  const router = useRouter();
   const { categories, loading } = useCategories();
   const create = useCreateCategory();
   const [mode, setMode] = useState<Mode>("browse");

@@ -17,6 +17,8 @@ import { VrataRing } from "@/components/gurukul/VrataRing";
 import { MalaRow } from "@/components/gurukul/MalaRow";
 import { PrayaschittaBanner } from "@/components/gurukul/PrayaschittaBanner";
 import { SamapanaCard } from "@/components/gurukul/SamapanaCard";
+import { NudgeStack } from "@/components/gurukul/NudgeStack";
+import { TodayGoalsPanel } from "@/components/goals/TodayGoalsPanel";
 import { KolamGrid } from "@/components/ornament/KolamGrid";
 import { VRATA_LENGTHS } from "@/types";
 
@@ -76,6 +78,9 @@ export default function HomePage() {
   return (
     <div className="space-y-7 py-2 relative">
       <KolamGrid className="absolute -top-4 -right-4 pointer-events-none" />
+
+      {/* Acharya nudges — proactive system prompts */}
+      <NudgeStack />
 
       {/* Prayaschitta surface — strict slip acknowledgement */}
       {vrataState?.unacknowledgedSlips && vrataState.unacknowledgedSlips.length > 0 && (
@@ -151,10 +156,17 @@ export default function HomePage() {
 
       <GoldRule width="section" />
 
-      {/* Today's offerings */}
+      {/* Today's goals (Phase 2 + 3) */}
+      <section className="space-y-3">
+        <LabelTiny className="block text-center">Today&apos;s Practice</LabelTiny>
+        <TodayGoalsPanel />
+      </section>
+
+      {/* Legacy PERMA habit dots — kept as a secondary surface so the old
+          system still has a presence while users migrate to goals. */}
       {total > 0 && (
-        <section className="space-y-3">
-          <LabelTiny className="block text-center">Today&apos;s Offerings</LabelTiny>
+        <section className="space-y-2 pt-2 border-t border-gold/20">
+          <LabelTiny className="block text-center">PERMA habits (legacy)</LabelTiny>
           <div className="flex justify-center gap-3">
             {userHabits.map((h, i) => {
               const log = todayLogs.find((l) => l.userHabitId === h.id);

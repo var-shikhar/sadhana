@@ -15,6 +15,7 @@ export function FolioFlip({ flipping, onFlipComplete, children, className }: Fol
 
   useEffect(() => {
     if (flipping && phase === "idle") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPhase("flipping");
       const t = setTimeout(() => {
         setPhase("idle");

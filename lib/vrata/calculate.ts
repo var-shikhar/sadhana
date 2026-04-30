@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { vratas, vrataSlips, dailyLogs } from "@/lib/db/schema";
+import { vratas, vrataSlips, dailyLogs, goalLogs } from "@/lib/db/schema";
 import { and, eq, gte, lte, inArray, desc, sql } from "drizzle-orm";
 import type {
   Vrata,
@@ -87,29 +87,34 @@ async function computeVrataProgress(
     ? today
     : addDays(start, vrata.baseDays + vrata.extensionDays - 1);
 
-  // Pull all logs for bound habits in the vrata window
+  // The vrata's bound IDs are GOAL ids (the column was named bound_habit_ids
+  // in the original schema before goals existed; we kept the column name to
+  // avoid a destructive migration but the values now reference goals.id).
+  const boundGoalIds = vrata.boundHabitIds;
+
+  // Pull all goal logs for bound goals in the vrata window
   const logs = await db
     .select({
-      date: dailyLogs.date,
-      userHabitId: dailyLogs.userHabitId,
-      completed: dailyLogs.completed,
+      date: goalLogs.date,
+      goalId: goalLogs.goalId,
+      value: goalLogs.value,
     })
-    .from(dailyLogs)
+    .from(goalLogs)
     .where(
       and(
-        eq(dailyLogs.userId, vrata.userId),
-        gte(dailyLogs.date, start),
-        lte(dailyLogs.date, end),
-        inArray(dailyLogs.userHabitId, vrata.boundHabitIds)
+        eq(goalLogs.userId, vrata.userId),
+        gte(goalLogs.date, start),
+        lte(goalLogs.date, end),
+        inArray(goalLogs.goalId, boundGoalIds)
       )
     );
 
-  // Group by date → set of completed bound habits
+  // Group by date → set of goals that had value > 0
   const completedByDate = new Map<string, Set<string>>();
   for (const l of logs) {
-    if (!l.completed) continue;
+    if ((l.value ?? 0) <= 0) continue;
     if (!completedByDate.has(l.date)) completedByDate.set(l.date, new Set());
-    completedByDate.get(l.date)!.add(l.userHabitId);
+    completedByDate.get(l.date)!.add(l.goalId);
   }
 
   // For each calendar day in window, determine: kept | slip | (future, skip)
@@ -122,11 +127,11 @@ async function computeVrataProgress(
     if (date === today) {
       // today is in-progress — don't count it as a slip even if not yet kept
       const set = completedByDate.get(date);
-      if (set && set.size === vrata.boundHabitIds.length) kept += 1;
+      if (set && set.size === boundGoalIds.length) kept += 1;
       continue;
     }
     const set = completedByDate.get(date);
-    if (set && set.size === vrata.boundHabitIds.length) {
+    if (set && set.size === boundGoalIds.length) {
       kept += 1;
     } else {
       slipDates.push(date);
@@ -235,7 +240,7 @@ export async function getVrataState(userId: string): Promise<VrataState> {
 
   let active = dbVrataToType(activeRow[0]);
 
-  const { daysCompleted, daysTarget, newSlipDates, existingSlips } =
+  const { daysCompleted, newSlipDates, existingSlips } =
     await computeVrataProgress(active, today);
 
   let allSlips = existingSlips;
@@ -269,16 +274,27 @@ export async function getVrataState(userId: string): Promise<VrataState> {
 }
 
 /**
- * "Days walked" = distinct dates where the user logged at least one habit
- * as completed. Used by the mala (lifetime cumulative).
+ * "Days walked" = distinct dates where the user logged any forward progress
+ * — either a goal log (value > 0) or a legacy habit log marked completed.
+ * Used by the mala (lifetime cumulative).
  */
 export async function getMalaState(userId: string): Promise<MalaState> {
-  // Distinct days walked (lifetime)
-  const distinctDaysRow = await db
-    .select({ d: sql<string>`distinct ${dailyLogs.date}` })
-    .from(dailyLogs)
-    .where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.completed, true)));
-  const allDates = distinctDaysRow.map((r) => r.d).sort();
+  // Distinct days walked (lifetime) — union of goal_logs and daily_logs
+  const [goalDays, habitDays] = await Promise.all([
+    db
+      .select({ d: sql<string>`distinct ${goalLogs.date}` })
+      .from(goalLogs)
+      .where(and(eq(goalLogs.userId, userId), sql`${goalLogs.value} > 0`)),
+    db
+      .select({ d: sql<string>`distinct ${dailyLogs.date}` })
+      .from(dailyLogs)
+      .where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.completed, true))),
+  ]);
+  const dateSet = new Set<string>([
+    ...goalDays.map((r) => r.d),
+    ...habitDays.map((r) => r.d),
+  ]);
+  const allDates = Array.from(dateSet).sort();
   const totalDaysWalked = allDates.length;
   const currentMalaBeads = totalDaysWalked % 108;
 
@@ -310,12 +326,26 @@ export async function getTapasState(userId: string): Promise<TapasState> {
   const today = ymd(new Date());
   const start = addDays(today, -6);
 
-  // Pull all user habits + logs in window
-  const [logs] = await Promise.all([
+  // Pull both goal logs and legacy habit logs in the window
+  const [gLogs, hLogs] = await Promise.all([
+    db
+      .select({
+        date: goalLogs.date,
+        id: goalLogs.goalId,
+        value: goalLogs.value,
+      })
+      .from(goalLogs)
+      .where(
+        and(
+          eq(goalLogs.userId, userId),
+          gte(goalLogs.date, start),
+          lte(goalLogs.date, today)
+        )
+      ),
     db
       .select({
         date: dailyLogs.date,
-        userHabitId: dailyLogs.userHabitId,
+        id: dailyLogs.userHabitId,
         completed: dailyLogs.completed,
       })
       .from(dailyLogs)
@@ -328,18 +358,26 @@ export async function getTapasState(userId: string): Promise<TapasState> {
       ),
   ]);
 
-  // For each day, take a single representative ratio: completed / unique-habits-logged-that-day.
-  // If the user logged nothing on a day, ratio = 0.
+  // For each day in window, ratio = (#unique kept) / (#unique logged).
+  // Combines both sources so users on either system see a flame.
   const recent7: number[] = [];
   for (let i = 0; i < 7; i++) {
     const date = addDays(start, i);
-    const dayLogs = logs.filter((l) => l.date === date);
-    if (dayLogs.length === 0) {
+    const goalsOnDay = gLogs.filter((l) => l.date === date);
+    const habitsOnDay = hLogs.filter((l) => l.date === date);
+    const totalLogged = new Set<string>([
+      ...goalsOnDay.map((l) => `g:${l.id}`),
+      ...habitsOnDay.map((l) => `h:${l.id}`),
+    ]).size;
+    if (totalLogged === 0) {
       recent7.push(0);
       continue;
     }
-    const done = dayLogs.filter((l) => l.completed).length;
-    recent7.push(done / dayLogs.length);
+    const kept = new Set<string>([
+      ...goalsOnDay.filter((l) => (l.value ?? 0) > 0).map((l) => `g:${l.id}`),
+      ...habitsOnDay.filter((l) => l.completed).map((l) => `h:${l.id}`),
+    ]).size;
+    recent7.push(kept / totalLogged);
   }
 
   let weighted = 0;

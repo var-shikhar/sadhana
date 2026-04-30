@@ -19,6 +19,7 @@ export function SanskritTerm({ term, gloss, className, termClassName }: Sanskrit
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrated(true);
     bumpGloss(term);
   }, [term, bumpGloss]);

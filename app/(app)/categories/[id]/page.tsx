@@ -9,6 +9,7 @@ import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { GuidedExplainer } from "@/components/gurukul/GuidedExplainer";
 import { CategoryForm } from "@/components/categories/CategoryForm";
+import { NudgeStack } from "@/components/gurukul/NudgeStack";
 import { GoalForm } from "@/components/goals/GoalForm";
 import { GoalCard } from "@/components/goals/GoalCard";
 import {
@@ -68,7 +69,7 @@ export default function CategoryDetailPage() {
     return (
       <div className="py-6 space-y-3 text-center">
         <p className="font-lyric-italic text-earth-mid">
-          That category isn't here.
+          That category isn&apos;t here.
         </p>
         <Link href="/categories" className="text-saffron hover:underline">
           Back to categories
@@ -215,6 +216,9 @@ export default function CategoryDetailPage() {
           <span style={{ color: colorHex }}>Priority {category.priority}</span>
         </div>
       </header>
+
+      {/* Category-scoped nudges */}
+      <NudgeStack categoryId={category.id} />
 
       <GoldRule width="section" />
 

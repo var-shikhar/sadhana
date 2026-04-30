@@ -64,8 +64,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (profile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayName(profile.displayName);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMorningTime(profile.morningReminderTime || "07:00");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEveningTime(profile.eveningReminderTime || "21:00");
     }
   }, [profile]);
