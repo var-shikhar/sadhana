@@ -24,13 +24,15 @@ export function useReflection() {
   };
 }
 
-type QuickPayload = {
+/** Legacy quick-mode payload (pitfall tags + free-text note). */
+type LegacyQuickPayload = {
   mode: "quick";
   quickTags: PitfallTag[];
   quickNote: string | null;
 };
 
-type DeepPayload = {
+/** Legacy CBT deep-mode payload — preserved for backward compatibility. */
+type LegacyDeepPayload = {
   mode: "deep";
   cbtEvent: string;
   cbtThought: string;
@@ -38,7 +40,20 @@ type DeepPayload = {
   cbtReframe: string;
 };
 
-type ReflectionPayload = QuickPayload | DeepPayload;
+/** New chip-bucket payload — current default. */
+type ChipFlowPayload = {
+  mode: "quick";
+  goodChips: string[];
+  badChips: string[];
+  neutralChips: string[];
+  chipDescriptions: Record<string, string>;
+  daySummary: string | null;
+};
+
+export type ReflectionPayload =
+  | LegacyQuickPayload
+  | LegacyDeepPayload
+  | ChipFlowPayload;
 
 export function useSubmitReflection() {
   const date = todayDate();
@@ -59,17 +74,26 @@ export function useSubmitReflection() {
         queryKeys.reflectionByDate(date)
       );
 
+      const isChip = "goodChips" in payload;
+
       const optimistic: Reflection = {
         id: "optimistic",
         userId: "",
         date,
         mode: payload.mode,
-        quickTags: payload.mode === "quick" ? payload.quickTags : null,
-        quickNote: payload.mode === "quick" ? payload.quickNote : null,
+        quickTags:
+          !isChip && payload.mode === "quick" ? payload.quickTags : null,
+        quickNote:
+          !isChip && payload.mode === "quick" ? payload.quickNote : null,
         cbtEvent: payload.mode === "deep" ? payload.cbtEvent : null,
         cbtThought: payload.mode === "deep" ? payload.cbtThought : null,
         cbtFeeling: payload.mode === "deep" ? payload.cbtFeeling : null,
         cbtReframe: payload.mode === "deep" ? payload.cbtReframe : null,
+        goodChips: isChip ? payload.goodChips : null,
+        badChips: isChip ? payload.badChips : null,
+        neutralChips: isChip ? payload.neutralChips : null,
+        chipDescriptions: isChip ? payload.chipDescriptions : null,
+        daySummary: isChip ? payload.daySummary : null,
         aiResponse: null,
         aiQuestion: null,
         userFollowup: null,
@@ -89,6 +113,7 @@ export function useSubmitReflection() {
       qc.invalidateQueries({ queryKey: queryKeys.reflectionByDate(date) });
       qc.invalidateQueries({ queryKey: queryKeys.archive() });
       qc.invalidateQueries({ queryKey: queryKeys.growthCurrent() });
+      qc.invalidateQueries({ queryKey: queryKeys.reflectionChips() });
     },
   });
 }

@@ -66,14 +66,16 @@ export default function CounselPage() {
       { query: text, history: recentHistory(4) },
       {
         onSuccess: (res) => {
-          if (res.answer) {
-            appendAcharya(
-              res.answer,
-              res.citationsUsed,
-              res.verses,
-              res.brokeCharacter
-            );
-          }
+          const answerText =
+            res.answer && res.answer.trim().length > 0
+              ? res.answer
+              : "(The Acharya returned no words this time. Try asking again, or rephrase your question.)";
+          appendAcharya(
+            answerText,
+            res.citationsUsed ?? [],
+            res.verses ?? [],
+            res.brokeCharacter ?? false
+          );
         },
       }
     );

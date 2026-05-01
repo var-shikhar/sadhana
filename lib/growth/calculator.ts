@@ -39,7 +39,22 @@ export async function calculateDailyScore(
 
   let reflectionPts = 0;
   if (reflection) {
-    if (reflection.mode === "quick") {
+    const isChipFlow =
+      Array.isArray(reflection.goodChips) ||
+      Array.isArray(reflection.badChips) ||
+      Array.isArray(reflection.neutralChips);
+
+    if (isChipFlow) {
+      // Base 15 for any chip-flow submission.
+      reflectionPts = 15;
+      const desc = reflection.chipDescriptions as Record<string, string> | null;
+      const hasDescriptions =
+        !!desc && Object.values(desc).some((v) => v && v.trim().length > 0);
+      if (hasDescriptions) reflectionPts += 5;
+      if (reflection.daySummary && reflection.daySummary.trim().length > 0) {
+        reflectionPts += 5;
+      }
+    } else if (reflection.mode === "quick") {
       reflectionPts = 15;
     } else if (reflection.mode === "deep") {
       reflectionPts = reflection.aiResponse ? 30 : 25;

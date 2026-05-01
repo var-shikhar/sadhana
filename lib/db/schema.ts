@@ -12,6 +12,7 @@ import {
   unique,
   customType,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // pgvector custom type for Drizzle. Stored as text in transit; pgvector
@@ -39,6 +40,7 @@ export const vector = customType<{
 });
 
 export const reflectionModeEnum = pgEnum("reflection_mode", ["quick", "deep"]);
+export const chipCategoryEnum = pgEnum("chip_category", ["good", "bad", "neutral"]);
 export const nudgeTypeEnum = pgEnum("nudge_type", ["emoji", "preset"]);
 export const vrataLengthEnum = pgEnum("vrata_length", [
   "saptaha",         // 7 days
@@ -252,12 +254,21 @@ export const reflections = pgTable(
     userId: text("user_id").notNull(),
     date: date("date").notNull(),
     mode: reflectionModeEnum("mode").notNull(),
+    // Legacy quick/deep fields — kept for archive compatibility with old entries.
     quickTags: text("quick_tags").array(),
     quickNote: text("quick_note"),
     cbtEvent: text("cbt_event"),
     cbtThought: text("cbt_thought"),
     cbtFeeling: text("cbt_feeling"),
     cbtReframe: text("cbt_reframe"),
+    // New chip-bucket flow:
+    goodChips: text("good_chips").array(),
+    badChips: text("bad_chips").array(),
+    neutralChips: text("neutral_chips").array(),
+    /** Map of chip name → user-attached description for this day. */
+    chipDescriptions: jsonb("chip_descriptions").$type<Record<string, string>>(),
+    /** Free-form one-or-two-line summary of how the day ended. */
+    daySummary: text("day_summary"),
     aiResponse: text("ai_response"),
     aiQuestion: text("ai_question"),
     userFollowup: text("user_followup"),
@@ -265,6 +276,34 @@ export const reflections = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [unique().on(table.userId, table.date)]
+);
+
+/**
+ * The user's persistent chip library — the dictionary they curate over time.
+ * Each chip has a default category (good / bad / neutral) but the same chip
+ * can be re-classified per-day if the user wants (the day's selection is the
+ * source of truth for that day, stored in reflections.{good,bad,neutral}_chips).
+ */
+export const reflectionChips = pgTable(
+  "reflection_chips",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    category: chipCategoryEnum("category").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    /** When the chip was last selected — drives recency-based ordering. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    /** Lifetime count of selections — drives frequency-based ordering. */
+    useCount: integer("use_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    unique("reflection_chips_user_name_unique").on(table.userId, table.name),
+    index("reflection_chips_user_active_idx").on(table.userId, table.isActive),
+  ]
 );
 
 export const growthScores = pgTable(

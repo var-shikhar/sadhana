@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -208,6 +209,26 @@ export default function SettingsPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <GoldRule width="section" />
+
+      <section className="space-y-3">
+        <LabelTiny className="block">Reflection chips</LabelTiny>
+        <Card className="bg-ivory-deep border-gold/40">
+          <CardContent className="pt-6 pb-6 space-y-3">
+            <p className="font-lyric-italic text-sm text-earth-deep">
+              The vocabulary you use on the Reflect tab — Good, Neutral, Bad.
+              Add chips, rename them, or move them between buckets.
+            </p>
+            <Link
+              href="/settings/reflection-chips"
+              className="inline-flex items-center gap-2 font-pressure-caps text-[10px] text-saffron underline-offset-4 hover:underline"
+            >
+              Open chip library →
+            </Link>
           </CardContent>
         </Card>
       </section>

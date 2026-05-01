@@ -118,17 +118,52 @@ export interface Reflection {
   userId: string;
   date: string;
   mode: ReflectionMode;
+  // Legacy fields — preserved so the archive can render older reflections
+  // that were written before the chip-bucket flow.
   quickTags: string[] | null;
   quickNote: string | null;
   cbtEvent: string | null;
   cbtThought: string | null;
   cbtFeeling: string | null;
   cbtReframe: string | null;
+  // Chip-bucket flow:
+  goodChips: string[] | null;
+  badChips: string[] | null;
+  neutralChips: string[] | null;
+  chipDescriptions: Record<string, string> | null;
+  daySummary: string | null;
   aiResponse: string | null;
   aiQuestion: string | null;
   userFollowup: string | null;
   aiFollowup: string | null;
   createdAt: string;
+}
+
+// ── Reflection Chips ──
+export type ChipCategory = "good" | "bad" | "neutral";
+
+export const CHIP_CATEGORY_ORDER: ChipCategory[] = ["good", "neutral", "bad"];
+
+export const CHIP_CATEGORY_META: Record<
+  ChipCategory,
+  { label: string; sanskrit: string; gloss: string; tone: "sage" | "earth" | "saffron" }
+> = {
+  good:    { label: "Good",    sanskrit: "Punya",   gloss: "what nourished", tone: "sage" },
+  neutral: { label: "Neutral", sanskrit: "Sakshi",  gloss: "what passed",    tone: "earth" },
+  bad:     { label: "Bad",     sanskrit: "Klesha",  gloss: "what depleted",  tone: "saffron" },
+};
+
+export interface ReflectionChip {
+  id: string;
+  userId: string;
+  name: string;
+  category: ChipCategory;
+  sortOrder: number;
+  isActive: boolean;
+  lastUsedAt: string | null;
+  useCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ── Growth Scores ──

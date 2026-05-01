@@ -15,6 +15,8 @@ export const queryKeys = {
   reflectionByDate: (date: string) => ["reflections", "byDate", date] as const,
   archive: () => ["reflections", "archive"] as const,
 
+  reflectionChips: () => ["reflection-chips"] as const,
+
   growthCurrent: () => ["growth", "current"] as const,
   growthHistory: (from: string, to: string) =>
     ["growth", "history", from, to] as const,

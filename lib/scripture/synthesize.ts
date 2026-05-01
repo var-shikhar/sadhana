@@ -20,7 +20,10 @@ import type { RetrievedVerse } from "./retrieve"
  *   gpt-4o       →  $2.50 in / $10.00 out   (highest quality)
  */
 const MODEL = process.env.OPENAI_MODEL || "gpt-5-nano"
-const MAX_OUTPUT_TOKENS = 700
+// GPT-5 family burns tokens on internal reasoning before producing visible
+// content. 700 was enough for GPT-4o but leaves GPT-5 with an empty content
+// field after reasoning eats the budget. 2000 gives reasoning + a full answer.
+const MAX_OUTPUT_TOKENS = 2000
 
 const SYSTEM_PROMPT = `You are an Acharya — a teacher speaking in the voice of Krishna to Arjuna, the friend on the chariot of the user's life. You are grounded entirely in the Vedic-Yogic tradition: Bhagavad Gita, Yoga Sutras of Patanjali, and the principal Upanishads.
 
@@ -29,6 +32,13 @@ VOICE:
 - Speak with the gravity of a teacher who has watched many practitioners arrive and depart. Sometimes severe, sometimes tender.
 - Use Sanskrit terms with a light gloss on first use only — "abhyasa (sustained practice)", "vairagya (non-attachment)".
 - Never use modern self-help language: avoid "you've got this", "manifestation", "best self", "self-care", "growth mindset".
+
+PRACTITIONER STATE — USE WITH CARE:
+- A PRACTITIONER_STATE block may be provided below. It is a window into the user's recent practice: their goals, vows (vratas), reflections, and a growth trend.
+- When the user's question touches what they are actually doing or feeling, refer to that state by name — a missed goal, a recurring tag in their reflections, a vrata they are mid-way through.
+- Do NOT recite the state back at them like a report. Speak as one who has been watching the chariot, not reading a dossier. Often a single specific reference ("you have stumbled three times this fortnight on your saptaha-vrata") is enough.
+- If the question is abstract or scriptural, you may ignore the state entirely.
+- If no PRACTITIONER_STATE is given, answer from scripture alone.
 
 CITATION DISCIPLINE — NON-NEGOTIABLE:
 - You may ONLY cite verses present in the SCRIPTURE_CONTEXT below.
@@ -39,9 +49,9 @@ CITATION DISCIPLINE — NON-NEGOTIABLE:
 
 ANSWER STRUCTURE:
 - 3 to 5 short paragraphs.
-- Open by naming what is happening for the user (mirror).
+- Open by naming what is happening for the user (mirror) — drawing on PRACTITIONER_STATE if relevant.
 - Quote or paraphrase one to three relevant verses with citations.
-- Close with either a question (Socratic) or one small, concrete suggestion.
+- Close with either a question (Socratic) or one small, concrete suggestion — calibrated to where the practitioner actually is, not generic.
 - Never give a numbered list of tips.
 
 SAFETY (BREAK CHARACTER):
@@ -51,6 +61,9 @@ interface SynthesisInput {
   userQuery: string
   retrievedVerses: RetrievedVerse[]
   conversationHistory?: Array<{ role: "user" | "acharya"; text: string }>
+  /** Pre-formatted block describing the practitioner's recent practice.
+   *  Built by `lib/acharya/practitioner-context.ts` — pass null to opt out. */
+  practitionerContext?: string | null
 }
 
 export interface SynthesisResult {
@@ -181,25 +194,41 @@ export async function synthesizeAnswer(
     }
   }
 
-  // Current turn — user query + retrieved scripture context
-  messages.push({
-    role: "user",
-    content: `USER QUESTION: ${input.userQuery}
+  // Current turn — user query + retrieved scripture context + optional
+  // practitioner state. The state block goes BEFORE the scripture context so
+  // the model can let it inform which retrieved verse it gravitates toward.
+  const stateBlock = input.practitionerContext?.trim()
+  const userTurn = [
+    `USER QUESTION: ${input.userQuery}`,
+    "",
+    stateBlock
+      ? `${stateBlock}\n`
+      : "(no PRACTITIONER_STATE supplied — answer from scripture alone.)\n",
+    "SCRIPTURE_CONTEXT (the only verses you may cite by their bracketed id):",
+    contextBlock ||
+      "(no verses retrieved — answer honestly that the texts you have do not directly address this question, and offer presence without fabricated citation.)",
+  ].join("\n")
+  messages.push({ role: "user", content: userTurn })
 
-SCRIPTURE_CONTEXT (the only verses you may cite by their bracketed id):
-${contextBlock || "(no verses retrieved — answer honestly that the texts you have do not directly address this question, and offer presence without fabricated citation.)"}`,
-  })
-
-  // GPT-5 family (`gpt-5`, `gpt-5-mini`, `gpt-5-nano`) only supports the
-  // default temperature (1). Sending any other value returns 400. GPT-4o
-  // family accepts custom temperature. Detect by model prefix.
+  // GPT-5 family (`gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5.4-nano`) only
+  // supports the default temperature (1). Sending any other value returns
+  // 400. GPT-4o family accepts custom temperature. Detect by model prefix.
+  // GPT-5 also defaults to medium reasoning_effort, which silently consumes
+  // the token budget before any visible content is emitted — set "none"
+  // (or "low" if "none" is rejected) so the answer actually shows up.
+  // Allowed values vary by GPT-5 sub-model: older nano/mini accept
+  // 'minimal' | 'low' | 'medium' | 'high'; newer (5.4-nano) accept
+  // 'none' | 'low' | 'medium' | 'high' | 'xhigh'. "low" is the only value
+  // both families accept and is still cheap on reasoning.
   const isGpt5 = MODEL.startsWith("gpt-5")
   const requestBody: Record<string, unknown> = {
     model: MODEL,
     messages,
     max_completion_tokens: MAX_OUTPUT_TOKENS,
   }
-  if (!isGpt5) {
+  if (isGpt5) {
+    requestBody.reasoning_effort = "low"
+  } else {
     requestBody.temperature = 0.6
   }
 
@@ -218,9 +247,26 @@ ${contextBlock || "(no verses retrieved — answer honestly that the texts you h
   }
 
   const json = (await res.json()) as {
-    choices: Array<{ message: { content: string } }>
+    choices: Array<{
+      message: { content: string | null }
+      finish_reason?: string
+    }>
+    usage?: { completion_tokens?: number; total_tokens?: number }
   }
-  const rawAnswer = json.choices[0]?.message?.content?.trim() ?? ""
+  const choice = json.choices[0]
+  const rawAnswer = choice?.message?.content?.trim() ?? ""
+
+  // Empty content most often means the reasoning budget consumed all output
+  // tokens (finish_reason === "length" with no visible content). Surface that
+  // instead of returning a silent empty string the UI will drop.
+  if (!rawAnswer) {
+    throw new Error(
+      `OpenAI returned no content (finish_reason=${
+        choice?.finish_reason ?? "unknown"
+      }, completion_tokens=${json.usage?.completion_tokens ?? "?"}). ` +
+        `Try raising MAX_OUTPUT_TOKENS or lowering reasoning_effort.`,
+    )
+  }
 
   // Citation validation — strip any citation the model invented
   const { cleaned, citationsUsed } = validateCitations(
