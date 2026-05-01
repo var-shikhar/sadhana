@@ -18,9 +18,10 @@ interface CitationChipProps {
   className?: string;
   /** When true, render slightly smaller for inline use */
   inline?: boolean;
+  /** Color theme — light (cream pages) or dark (Counsel surface) */
+  variant?: "light" | "dark";
 }
 
-/** Parse "BG_2.47" or "BG 2.47" into {book: "BG", ref: "2.47"} */
 export function parseExternalId(externalId: string): {
   book: string;
   ref: string;
@@ -41,17 +42,25 @@ export function CitationChip({
   onOpen,
   className,
   inline = false,
+  variant = "light",
 }: CitationChipProps) {
   const { book, ref } = parseExternalId(externalId);
+
+  const colors =
+    variant === "dark"
+      ? "bg-saffron/15 border-saffron/40 hover:bg-saffron/25 hover:border-saffron"
+      : "bg-saffron/10 border-saffron/40 hover:bg-saffron/20 hover:border-saffron hover:shadow-sm";
+
+  const refColor = variant === "dark" ? "text-parchment" : "text-ink";
 
   return (
     <button
       type="button"
       onClick={onOpen}
       className={cn(
-        "inline-flex items-baseline gap-1 rounded-full border bg-saffron/10 border-saffron/40 transition-all align-baseline",
-        "hover:bg-saffron/20 hover:border-saffron hover:shadow-sm",
+        "inline-flex items-baseline gap-1 rounded-full border transition-all align-baseline",
         inline ? "px-2 py-0 text-[10px]" : "px-2.5 py-0.5 text-xs",
+        colors,
         className
       )}
       title={`Open ${externalId}`}
@@ -59,7 +68,7 @@ export function CitationChip({
       <span className="font-pressure-caps text-saffron tracking-[2px]">
         {book}
       </span>
-      <span className="font-lyric text-ink">{ref}</span>
+      <span className={cn("font-lyric", refColor)}>{ref}</span>
     </button>
   );
 }

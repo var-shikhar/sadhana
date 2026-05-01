@@ -12,9 +12,9 @@ interface MessageBubbleProps {
   message: CounselMessage;
   onOpenSources?: () => void;
   onCitationClick?: (externalId: string) => void;
+  variant?: "light" | "dark";
 }
 
-/** Strip [BG 2.47]-style citation brackets when speaking aloud. */
 function stripCitationsForSpeech(text: string): string {
   return text.replace(/\[[A-Za-z]+_?[\d.]+\]/g, "");
 }
@@ -45,15 +45,14 @@ export function MessageBubble({
   message,
   onOpenSources,
   onCitationClick,
+  variant = "light",
 }: MessageBubbleProps) {
-  // Hooks must be called in the same order every render — keep all of them
-  // at the top, regardless of which bubble shape we render.
   const speak = useSpeak({ rate: 0.92 });
 
   if (message.role === "user") {
     return (
       <div className="flex justify-end animate-bubble-in">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-saffron text-ivory px-4 py-2.5 shadow-sm">
+        <div className="max-w-[78%] rounded-2xl rounded-tr-sm bg-saffron text-ivory px-4 py-2.5 shadow-sm">
           <p className="font-lyric text-base leading-snug">{message.text}</p>
         </div>
         <style>{`
@@ -70,20 +69,39 @@ export function MessageBubble({
   }
 
   // Acharya bubble
-  const tokens = tokenizeAnswer(message.text);
   const sourceCount = message.sources?.length ?? 0;
+
+  const acharyaBubbleColors =
+    variant === "dark"
+      ? message.brokeCharacter
+        ? "bg-ink-soft border-saffron/60"
+        : "bg-linear-to-br from-[#1f1610] to-[#2b1810] border-earth-mid/40"
+      : message.brokeCharacter
+      ? "bg-ivory border-saffron/60"
+      : "bg-linear-to-br from-ivory-deep to-parchment border-gold/40";
+
+  const acharyaTextColor = variant === "dark" ? "text-parchment" : "text-ink";
+  const sourcesButtonColor =
+    variant === "dark"
+      ? "text-saffron hover:text-[#f29a3a]"
+      : "text-saffron hover:text-saffron/80";
 
   return (
     <div className="flex items-start gap-3 max-w-[88%] animate-acharya-in">
-      <div className="flex-shrink-0 w-9 h-9 rounded-full bg-saffron/15 border border-saffron/40 flex items-center justify-center">
+      <div
+        className={cn(
+          "shrink-0 w-9 h-9 rounded-full border flex items-center justify-center",
+          variant === "dark"
+            ? "bg-saffron/10 border-saffron/30"
+            : "bg-saffron/15 border-saffron/40"
+        )}
+      >
         <OmGlyph size={18} tone="saffron" />
       </div>
       <div
         className={cn(
           "flex-1 rounded-2xl rounded-tl-sm border px-4 py-3 shadow-sm space-y-3",
-          message.brokeCharacter
-            ? "bg-ivory border-saffron/60"
-            : "bg-linear-to-br from-ivory-deep to-parchment border-gold/40"
+          acharyaBubbleColors
         )}
       >
         {message.brokeCharacter && (
@@ -91,20 +109,26 @@ export function MessageBubble({
             Plain words
           </div>
         )}
-        <div className="font-lyric text-base leading-relaxed text-ink space-y-3 ink-bleed">
+        <div
+          className={cn(
+            "font-lyric text-base leading-relaxed space-y-3 ink-bleed",
+            acharyaTextColor
+          )}
+        >
           {message.text.split(/\n\n+/).map((para, i) => {
             const paraTokens = tokenizeAnswer(para);
             return (
               <p key={i}>
                 {paraTokens.map((tok, j) => {
                   if (tok.kind === "text") {
-                    return <Fragment key={j}>{renderInlineMarkdown(tok.value)}</Fragment>;
+                    return <Fragment key={j}>{renderInlineMarkdown(tok.value, variant)}</Fragment>;
                   }
                   return (
                     <Fragment key={j}>
                       <CitationChip
                         externalId={tok.externalId}
                         inline
+                        variant={variant}
                         onOpen={() => onCitationClick?.(tok.externalId)}
                       />
                     </Fragment>
@@ -120,7 +144,10 @@ export function MessageBubble({
             <button
               type="button"
               onClick={onOpenSources}
-              className="inline-flex items-center gap-1 text-[11px] font-pressure-caps text-saffron tracking-[2px] hover:text-saffron/80 transition-colors"
+              className={cn(
+                "inline-flex items-center gap-1 text-[11px] font-pressure-caps tracking-[2px] transition-colors",
+                sourcesButtonColor
+              )}
             >
               <span>↪ Sources · {sourceCount}</span>
             </button>
@@ -134,9 +161,6 @@ export function MessageBubble({
             }}
           />
         </div>
-
-        {/* Suppress lint — used inside string only */}
-        {void tokens}
       </div>
 
       <style>{`
@@ -159,13 +183,18 @@ export function MessageBubble({
   );
 }
 
-/** Tiny inline markdown — only bold (**text**) for now. */
-function renderInlineMarkdown(text: string): React.ReactNode {
+function renderInlineMarkdown(text: string, variant: "light" | "dark"): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((p, i) => {
     if (p.startsWith("**") && p.endsWith("**")) {
       return (
-        <strong key={i} className="font-pressure text-ink">
+        <strong
+          key={i}
+          className={cn(
+            "font-pressure",
+            variant === "dark" ? "text-ivory" : "text-ink"
+          )}
+        >
           {p.slice(2, -2)}
         </strong>
       );

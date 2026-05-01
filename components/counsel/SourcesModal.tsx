@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { cn } from "@/lib/utils";
 import type { RetrievedVerse } from "@/lib/scripture/retrieve";
 
@@ -45,12 +44,15 @@ interface SourcesModalProps {
   open: boolean;
   onClose: () => void;
   sources: RetrievedVerse[];
-  /** Verse to scroll into view + auto-expand on open */
   initialVerseExternalId?: string;
-  /** Citations actually used in the answer — these get the saffron seal */
   citationsUsed?: string[];
 }
 
+/**
+ * Sources panel — opens from within the dark Counsel surface, so it carries
+ * the same evening-room mood. The Acharya's answer is the answer; this panel
+ * is the *library shelf* the user can step over to and verify any citation.
+ */
 export function SourcesModal({
   open,
   onClose,
@@ -75,13 +77,11 @@ export function SourcesModal({
           ?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
     } else if (citationsUsed && citationsUsed.length > 0) {
-      // Default-expand the verses actually cited
       setExpanded(new Set(citationsUsed));
     }
   }, [open, initialVerseExternalId, citationsUsed]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Group sources by book
   const groups = useMemo(() => {
     const m = new Map<string, RetrievedVerse[]>();
     for (const v of sources) {
@@ -104,22 +104,24 @@ export function SourcesModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center animate-modal-in"
+      className="fixed inset-0 z-55 flex items-end sm:items-center justify-center animate-modal-in"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-ink/45 backdrop-blur-[3px]" />
+      <div className="absolute inset-0 bg-ink/70 backdrop-blur-[3px]" />
       <div
-        className="relative w-full max-w-2xl max-h-[88vh] flex flex-col bg-ivory rounded-t-xl sm:rounded-xl border border-gold/40 shadow-[0_8px_32px_rgba(26,18,8,0.35)] animate-modal-up"
+        className="relative w-full max-w-2xl max-h-[88vh] flex flex-col bg-ink-soft rounded-t-xl sm:rounded-xl border border-earth-mid/40 shadow-[0_8px_32px_rgba(0,0,0,0.6)] animate-modal-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 flex items-baseline justify-between bg-ivory/95 backdrop-blur p-5 border-b border-gold/30 z-10">
+        <div className="sticky top-0 flex items-baseline justify-between bg-ink-soft/95 backdrop-blur p-5 border-b border-earth-mid/40 z-10">
           <div>
-            <LabelTiny>Sources</LabelTiny>
-            <h2 className="font-lyric text-2xl text-ink mt-0.5">
+            <span className="font-pressure-caps text-[10px] text-earth-mid tracking-[3px]">
+              Sources
+            </span>
+            <h2 className="font-lyric text-2xl text-parchment mt-0.5">
               The texts the Acharya drew from
             </h2>
-            <p className="font-lyric-italic text-xs text-earth-mid mt-1">
+            <p className="font-lyric-italic text-xs text-parchment/50 mt-1">
               {sources.length} verses · {groups.length}{" "}
               {groups.length === 1 ? "book" : "books"}
               {citationsUsed && citationsUsed.length > 0 && (
@@ -136,7 +138,7 @@ export function SourcesModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-earth-mid hover:text-ink text-2xl leading-none -mt-1"
+            className="text-parchment/40 hover:text-saffron text-2xl leading-none -mt-1 transition-colors"
           >
             ×
           </button>
@@ -147,10 +149,10 @@ export function SourcesModal({
           {groups.map(([book, verses]) => (
             <section key={book} className="space-y-3">
               <div className="flex items-baseline gap-2">
-                <h3 className="font-lyric text-lg text-ink">
+                <h3 className="font-lyric text-lg text-parchment">
                   {BOOK_LABELS[book] ?? book}
                 </h3>
-                <span className="font-pressure-caps text-[9px] text-earth-mid">
+                <span className="font-pressure-caps text-[9px] text-parchment/50">
                   {verses.length} {verses.length === 1 ? "verse" : "verses"}
                 </span>
               </div>
@@ -166,8 +168,8 @@ export function SourcesModal({
                       className={cn(
                         "rounded border transition-all",
                         wasCited
-                          ? "border-saffron/50 bg-linear-to-br from-ivory-deep to-parchment"
-                          : "border-gold/30 bg-ivory-deep/60"
+                          ? "border-saffron/50 bg-linear-to-br from-[#1f1610] to-[#2b1810]"
+                          : "border-earth-mid/30 bg-ink/50"
                       )}
                     >
                       <button
@@ -179,14 +181,14 @@ export function SourcesModal({
                           <span className="font-pressure-caps text-[10px] text-saffron tracking-[2px]">
                             {ref}
                           </span>
-                          <span className="font-pressure-caps text-[8px] text-earth-mid">
+                          <span className="font-pressure-caps text-[8px] text-parchment/50">
                             {SOURCE_LABEL[v.source]}
                             {v.similarity > 0 && (
                               <> · {(v.similarity * 100).toFixed(0)}%</>
                             )}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           {wasCited && (
                             <span
                               className="w-5 h-5 rounded-full bg-saffron flex items-center justify-center"
@@ -199,7 +201,7 @@ export function SourcesModal({
                           )}
                           <span
                             className={cn(
-                              "text-earth-mid transition-transform",
+                              "text-parchment/50 transition-transform",
                               isExpanded && "rotate-90"
                             )}
                           >
@@ -212,12 +214,14 @@ export function SourcesModal({
                         <div className="px-4 pb-4 space-y-4 animate-source-expand">
                           {v.sanskritDevanagari && (
                             <div className="space-y-1">
-                              <LabelTiny>Sanskrit</LabelTiny>
-                              <p className="font-lyric text-base text-ink leading-relaxed">
+                              <span className="font-pressure-caps text-[10px] text-earth-mid tracking-[3px]">
+                                Sanskrit
+                              </span>
+                              <p className="font-lyric text-base text-parchment leading-relaxed">
                                 {v.sanskritDevanagari}
                               </p>
                               {v.sanskritIast && (
-                                <p className="font-lyric-italic text-xs text-earth-deep mt-1">
+                                <p className="font-lyric-italic text-xs text-parchment/60 mt-1">
                                   {v.sanskritIast}
                                 </p>
                               )}
@@ -226,40 +230,44 @@ export function SourcesModal({
 
                           {v.translations.length > 0 ? (
                             <div className="space-y-3">
-                              <LabelTiny>Translations</LabelTiny>
+                              <span className="font-pressure-caps text-[10px] text-earth-mid tracking-[3px]">
+                                Translations
+                              </span>
                               {v.translations.map((t) => (
                                 <div
                                   key={t.translator}
-                                  className="space-y-1 border-l-2 border-gold/40 pl-3"
+                                  className="space-y-1 border-l-2 border-saffron/40 pl-3"
                                 >
                                   <div className="font-pressure-caps text-[9px] text-saffron tracking-[2px]">
                                     {TRANSLATOR_LABELS[t.translator] ?? t.translator}
                                     {t.editionYear && (
-                                      <span className="text-earth-mid ml-1">
+                                      <span className="text-parchment/40 ml-1">
                                         · {t.editionYear}
                                       </span>
                                     )}
                                   </div>
-                                  <p className="font-lyric-italic text-sm text-ink leading-relaxed">
+                                  <p className="font-lyric-italic text-sm text-parchment leading-relaxed">
                                     &quot;{t.englishText}&quot;
                                   </p>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="font-lyric-italic text-sm text-earth-mid">
+                            <p className="font-lyric-italic text-sm text-parchment/50">
                               No translation stored for this verse yet.
                             </p>
                           )}
 
                           {v.tags.length > 0 && (
-                            <div className="space-y-1.5 pt-2 border-t border-gold/20">
-                              <LabelTiny>Themes</LabelTiny>
+                            <div className="space-y-1.5 pt-2 border-t border-earth-mid/30">
+                              <span className="font-pressure-caps text-[10px] text-earth-mid tracking-[3px]">
+                                Themes
+                              </span>
                               <div className="flex flex-wrap gap-1.5">
                                 {v.tags.map((t) => (
                                   <span
                                     key={t}
-                                    className="font-pressure-caps text-[8px] text-earth-deep border border-gold/40 rounded-full px-2 py-0.5"
+                                    className="font-pressure-caps text-[8px] text-parchment/70 border border-earth-mid/40 rounded-full px-2 py-0.5"
                                   >
                                     {t}
                                   </span>
@@ -281,7 +289,7 @@ export function SourcesModal({
       <style>{`
         @keyframes modal-in {
           from { background-color: transparent; }
-          to { background-color: rgba(26, 18, 8, 0.45); }
+          to { background-color: rgba(13, 6, 4, 0.7); }
         }
         @keyframes modal-up {
           from { opacity: 0; transform: translateY(20px); }

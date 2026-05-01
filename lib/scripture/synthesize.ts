@@ -190,18 +190,26 @@ SCRIPTURE_CONTEXT (the only verses you may cite by their bracketed id):
 ${contextBlock || "(no verses retrieved — answer honestly that the texts you have do not directly address this question, and offer presence without fabricated citation.)"}`,
   })
 
+  // GPT-5 family (`gpt-5`, `gpt-5-mini`, `gpt-5-nano`) only supports the
+  // default temperature (1). Sending any other value returns 400. GPT-4o
+  // family accepts custom temperature. Detect by model prefix.
+  const isGpt5 = MODEL.startsWith("gpt-5")
+  const requestBody: Record<string, unknown> = {
+    model: MODEL,
+    messages,
+    max_completion_tokens: MAX_OUTPUT_TOKENS,
+  }
+  if (!isGpt5) {
+    requestBody.temperature = 0.6
+  }
+
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      max_completion_tokens: MAX_OUTPUT_TOKENS,
-      temperature: 0.6,
-    }),
+    body: JSON.stringify(requestBody),
   })
 
   if (!res.ok) {

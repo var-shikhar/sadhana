@@ -2,14 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { LabelTiny } from "@/components/gurukul/LabelTiny";
-import { GoldRule } from "@/components/gurukul/GoldRule";
-import { GuidedExplainer } from "@/components/gurukul/GuidedExplainer";
 import { OmGlyph } from "@/components/gurukul/OmGlyph";
-import { LotusMandala } from "@/components/ornament/LotusMandala";
 import { MessageBubble } from "@/components/counsel/MessageBubble";
 import { ThinkingIndicator } from "@/components/counsel/ThinkingIndicator";
 import { SourcesModal } from "@/components/counsel/SourcesModal";
@@ -19,6 +14,12 @@ import { useCounselStore } from "@/lib/stores/counsel";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import type { RetrievedVerse } from "@/lib/scripture/retrieve";
 
+/**
+ * The Counsel surface — full-bleed dark, intimate, focused on one thing:
+ * the dialogue. It takes over the viewport (z-50) so the BottomNav, page
+ * chrome, and ornament noise drop away. The room is small. The flame is
+ * lit. You speak.
+ */
 export default function CounselPage() {
   const messages = useCounselStore((s) => s.messages);
   const appendUser = useCounselStore((s) => s.appendUser);
@@ -37,10 +38,13 @@ export default function CounselPage() {
     initialVerseExternalId?: string;
   }>({ open: false, sources: [], citationsUsed: [] });
 
-  const scrollAnchorRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages.length, mutation.isPending]);
 
   const voice = useVoiceInput({
@@ -54,15 +58,12 @@ export default function CounselPage() {
     e?.preventDefault();
     const text = draft.trim();
     if (!text || mutation.isPending) return;
-
     appendUser(text);
     setDraft("");
+    if (voice.isListening) voice.stop();
 
     mutation.mutate(
-      {
-        query: text,
-        history: recentHistory(4),
-      },
+      { query: text, history: recentHistory(4) },
       {
         onSuccess: (res) => {
           if (res.answer) {
@@ -90,64 +91,76 @@ export default function CounselPage() {
   }
 
   const isEmpty = messages.length === 0 && !mutation.isPending;
+  const composerValue = voice.isListening
+    ? `${draft}${draft && voice.interim ? " " : ""}${voice.interim}`
+    : draft;
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-8rem)] relative">
-      <LotusMandala
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 pointer-events-none"
-        opacity={0.07}
-        size={400}
-      />
-
-      {/* Header */}
-      <header className="text-center py-4 space-y-1.5 relative">
-        <div className="flex justify-center">
-          <OmGlyph size={32} tone="saffron" />
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-ink"
+      style={{
+        backgroundImage:
+          "radial-gradient(ellipse at top, rgba(43,24,16,0.6) 0%, transparent 70%), radial-gradient(ellipse at bottom, rgba(26,18,8,1) 0%, rgba(13,6,4,1) 100%)",
+      }}
+    >
+      {/* Top bar — minimal: back arrow · OM · clear */}
+      <header className="flex items-center justify-between px-4 py-3 border-b border-earth-deep/40 backdrop-blur-sm">
+        <Link
+          href="/"
+          className="text-parchment/60 hover:text-saffron transition-colors flex items-center justify-center w-9 h-9 rounded-full"
+          aria-label="Back to home"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
+        <div className="flex items-center justify-center">
+          <OmGlyph size={22} tone="saffron" />
         </div>
-        <LabelTiny>Counsel · the Acharya</LabelTiny>
-        <h1 className="font-lyric text-2xl text-ink leading-tight">
-          Speak. The texts will answer.
-        </h1>
-        {messages.length > 0 && (
+        {messages.length > 0 ? (
           <button
             type="button"
             onClick={() => setConfirmClear(true)}
-            className="font-pressure-caps text-[9px] text-earth-mid hover:text-saffron tracking-[2px] mt-2"
+            aria-label="Clear conversation"
+            className="text-parchment/40 hover:text-saffron transition-colors w-9 h-9 rounded-full flex items-center justify-center"
           >
-            ⌫ Clear conversation
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22m-3 0V5a2 2 0 00-2-2H8a2 2 0 00-2 2v2"
+              />
+            </svg>
           </button>
+        ) : (
+          <span className="w-9 h-9" />
         )}
       </header>
 
-      <GoldRule width="section" className="mb-4" />
-
-      {/* Messages list — scrollable region */}
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4 relative">
-        {isEmpty && (
-          <div className="space-y-4 pt-2">
-            <GuidedExplainer
-              defaultOpen
-              question="What is happening?"
-              explanation={`Speak as you would to a teacher who has known you a long time. The Acharya answers in the voice of Krishna to Arjuna — grounded in the Gita, the Yoga Sutras, and the principal Upanishads. Every claim is anchored to a verse you can open and verify.`}
-              examples={`I keep starting and quitting · I'm angry and don't know why · What's the point of trying`}
-            />
-            <Card className="bg-linear-to-br from-ivory-deep to-parchment border-gold/40">
-              <CardContent className="p-5 space-y-2">
-                <LabelTiny>Three things to know</LabelTiny>
-                <ul className="font-lyric-italic text-sm text-earth-deep space-y-1.5 leading-relaxed">
-                  <li>· Every answer cites the verses it draws from. Tap any citation to see the verse.</li>
-                  <li>· The Acharya remembers the last few turns of this conversation.</li>
-                  <li>· If you write something that suggests you&apos;re in crisis, the Acharya breaks character and surfaces real-world help.</li>
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+      {/* Messages area — the only thing that matters */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-5"
+      >
+        {isEmpty && <EmptyState />}
 
         {messages.map((m) => (
           <MessageBubble
             key={m.id}
             message={m}
+            variant="dark"
             onOpenSources={
               m.role === "acharya" ? () => openSourcesFor(m.id) : undefined
             }
@@ -159,36 +172,30 @@ export default function CounselPage() {
           />
         ))}
 
-        {mutation.isPending && <ThinkingIndicator />}
+        {mutation.isPending && <ThinkingIndicator variant="dark" />}
 
         {mutation.isError && (
-          <Card className="bg-saffron/5 border-saffron/40">
-            <CardContent className="p-4">
-              <p className="font-lyric-italic text-sm text-earth-deep">
-                {(mutation.error as Error).message}
-              </p>
-              <p className="text-xs text-earth-mid mt-2">
-                If this is your first run, ensure the corpus is ingested:{" "}
-                <code className="font-mono">npm run ingest:scriptures</code>
-                {" "}— and that <code className="font-mono">OPENAI_API_KEY</code>{" "}
-                is set in <code className="font-mono">.env.local</code>.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="rounded-lg border border-saffron/40 bg-ink-soft p-4">
+            <p className="font-lyric-italic text-sm text-parchment leading-relaxed">
+              {(mutation.error as Error).message}
+            </p>
+          </div>
         )}
-
-        <div ref={scrollAnchorRef} />
       </div>
 
-      {/* Composer — sticky bottom */}
-      <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-2 bg-linear-to-t from-ivory via-ivory to-transparent">
-        <form onSubmit={handleSend} className="flex flex-col gap-2">
+      {/* Composer — minimal, dark, focused */}
+      <div className="px-4 py-3 border-t border-earth-deep/40 backdrop-blur-sm bg-ink/80">
+        <form onSubmit={handleSend} className="flex items-end gap-2">
+          <MicButton
+            isListening={voice.isListening}
+            supported={voice.supported}
+            onToggle={voice.toggle}
+            disabled={mutation.isPending}
+            variant="dark"
+          />
+
           <Textarea
-            value={
-              voice.isListening
-                ? `${draft}${draft && voice.interim ? " " : ""}${voice.interim}`
-                : draft
-            }
+            value={composerValue}
             onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -197,94 +204,77 @@ export default function CounselPage() {
               }
             }}
             placeholder={
-              voice.isListening
-                ? "Listening — speak now…"
-                : "Speak plainly. The Acharya is listening."
+              voice.isListening ? "Listening…" : "Speak."
             }
-            rows={2}
+            rows={1}
             disabled={mutation.isPending}
-            className="bg-ivory border-gold/40 font-lyric text-base resize-none"
+            className="flex-1 min-h-10 max-h-32 bg-ink-soft border-earth-mid/40 text-parchment font-lyric text-base resize-none placeholder:text-parchment/30 placeholder:font-lyric-italic focus-visible:border-saffron/60 focus-visible:ring-saffron/20"
           />
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <MicButton
-                isListening={voice.isListening}
-                supported={voice.supported}
-                onToggle={voice.toggle}
-                disabled={mutation.isPending}
-              />
-              <span className="font-pressure-caps text-[9px] text-earth-mid tracking-[2px]">
-                {voice.isListening
-                  ? "Speaking…"
-                  : voice.supported
-                  ? "↵ send · 🎙 voice"
-                  : "↵ to send · ⇧↵ for new line"}
-              </span>
-            </div>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!draft.trim() || mutation.isPending}
-              className="font-pressure-caps tracking-[2px] text-[10px]"
+
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!draft.trim() || mutation.isPending}
+            className="h-10 w-10 p-0 rounded-full shrink-0"
+            aria-label="Send"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
             >
-              {mutation.isPending ? "Listening…" : "Ask"}
-            </Button>
-          </div>
-          {voice.error && (
-            <p className="text-[10px] text-saffron font-lyric-italic">
-              {voice.error === "not-allowed"
-                ? "Microphone access denied. Enable it in your browser settings."
-                : voice.error === "no-speech"
-                ? "Didn't catch that. Try again."
-                : `Voice error: ${voice.error}`}
-            </p>
-          )}
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l14-9-7 18-2-7-5-2z" />
+            </svg>
+          </Button>
         </form>
-        <p className="text-center text-xs text-earth-mid pt-2">
-          <Link href="/" className="hover:text-saffron">
-            ← back to home
-          </Link>
-        </p>
+
+        {voice.error && voice.error !== "no-speech" && (
+          <p className="text-[10px] text-saffron/80 font-lyric-italic mt-2 text-center">
+            {voice.error === "not-allowed"
+              ? "Microphone access denied. Enable it in your browser settings."
+              : `Voice error: ${voice.error}`}
+          </p>
+        )}
       </div>
 
-      {/* Confirm clear */}
+      {/* Confirm clear — dark variant */}
       {confirmClear && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 backdrop-blur-sm"
+          className="fixed inset-0 z-60 flex items-center justify-center bg-ink/70 backdrop-blur-sm px-4"
           onClick={() => setConfirmClear(false)}
         >
-          <Card
-            className="max-w-sm bg-ivory border-gold/40"
+          <div
+            className="max-w-sm w-full bg-ink-soft border border-earth-mid/40 rounded-xl p-5 space-y-3 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <CardContent className="p-5 space-y-3">
-              <p className="font-lyric text-base text-ink">
-                Clear this conversation?
-              </p>
-              <p className="font-lyric-italic text-xs text-earth-deep">
-                The Acharya will forget what was said in this thread. Your
-                practice data and reflections are not affected.
-              </p>
-              <div className="flex gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setConfirmClear(false)}
-                >
-                  Keep
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    clear();
-                    setConfirmClear(false);
-                  }}
-                >
-                  Clear
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            <p className="font-lyric text-base text-parchment">
+              Clear this conversation?
+            </p>
+            <p className="font-lyric-italic text-xs text-parchment/60">
+              The Acharya will forget what was said in this thread. Your
+              practice data is not affected.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1 bg-ink border-earth-mid/40 text-parchment hover:bg-ink-soft"
+                onClick={() => setConfirmClear(false)}
+              >
+                Keep
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  clear();
+                  setConfirmClear(false);
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -302,6 +292,23 @@ export default function CounselPage() {
         citationsUsed={sourcesModal.citationsUsed}
         initialVerseExternalId={sourcesModal.initialVerseExternalId}
       />
+    </div>
+  );
+}
+
+/**
+ * Empty state — minimal, ambient. One line of italic, a faded OM watermark
+ * behind. The user should know what to do without being told.
+ */
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] relative pointer-events-none">
+      <div className="opacity-[0.06] mb-2">
+        <OmGlyph size={140} tone="saffron" />
+      </div>
+      <p className="font-lyric-italic text-base text-parchment/40 -mt-20">
+        Speak.
+      </p>
     </div>
   );
 }
