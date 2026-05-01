@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:seed": "npx tsx lib/db/seed.ts"
+    "db:seed": "npx tsx lib/db/seed.ts",
+    "db:enable-pgvector": "npx tsx scripts/enable-pgvector.ts",
+    "ingest:scriptures": "npx tsx scripts/ingest-scriptures.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
