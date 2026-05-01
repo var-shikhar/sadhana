@@ -43,15 +43,18 @@ export function CalendarHeatmap({ scores }: CalendarHeatmapProps) {
   if (currentWeek.length > 0) weeks.push(currentWeek);
 
   return (
-    <div className="space-y-2">
-      <div className="flex gap-[3px] overflow-x-auto">
+    <div className="space-y-3">
+      <div className="flex gap-0.75 w-full">
         {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-[3px]">
+          <div
+            key={wi}
+            className="flex flex-col gap-0.75 flex-1 min-w-0"
+          >
             {week.map((day) => (
               <div
                 key={format(day.date, "yyyy-MM-dd")}
                 className={cn(
-                  "h-3 w-3 rounded-sm transition-colors border border-gold/20",
+                  "w-full aspect-square rounded-sm transition-colors border border-gold/20",
                   getIntensityClasses(day.score)
                 )}
                 title={`${format(day.date, "MMM d")}: ${day.score} pts`}

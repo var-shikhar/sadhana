@@ -327,6 +327,187 @@
         { "translator": "paramananda", "editionYear": 1919, "englishText": "Not inwardly cognitive, not outwardly cognitive, not cognitive of both, not a mass of cognition, neither cognitive nor non-cognitive, unseen, beyond empirical dealings, beyond the grasp, uninferable, unthinkable, indescribable; whose essence is the consciousness of the one Self; in whom all phenomena cease — peaceful, blissful, non-dual: such, they think, is the Fourth. He is the Self; He is to be known." }
       ],
       "tags": ["the-self", "turiya", "non-dual", "witness-consciousness"]
+    },
+
+    {
+      "externalId": "BG_2.14",
+      "book": "bhagavad_gita",
+      "chapter": 2,
+      "verse": 14,
+      "ordinalIndex": 100214,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "The contacts of matter, O son of Kuntî, give cold and heat, pleasure and pain; they come and go, impermanent; endure them bravely, O Bhârata." }
+      ],
+      "tags": ["impermanence", "endurance", "pain-and-pleasure", "equanimity"]
+    },
+    {
+      "externalId": "BG_2.20",
+      "book": "bhagavad_gita",
+      "chapter": 2,
+      "verse": 20,
+      "ordinalIndex": 100220,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "He is not born, nor doth he die; nor having been, ceaseth he any more to be; unborn, perpetual, eternal and ancient, he is not slain when the body is slaughtered." }
+      ],
+      "tags": ["the-eternal-self", "the-self", "death", "fear-of-death"]
+    },
+    {
+      "externalId": "BG_3.5",
+      "book": "bhagavad_gita",
+      "chapter": 3,
+      "verse": 5,
+      "ordinalIndex": 100305,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "Nor can anyone, even for an instant, remain really actionless; for helplessly is everyone driven to action by the qualities born of nature." }
+      ],
+      "tags": ["action-is-inevitable", "agency", "starting"]
+    },
+    {
+      "externalId": "BG_3.35",
+      "book": "bhagavad_gita",
+      "chapter": 3,
+      "verse": 35,
+      "ordinalIndex": 100335,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "Better one's own duty, though destitute of merits, than the duty of another well discharged. Better death in the discharge of one's own duty; the duty of another is full of danger." }
+      ],
+      "tags": ["svadharma", "comparison", "your-own-path", "imitation-is-poison"]
+    },
+    {
+      "externalId": "BG_4.7",
+      "book": "bhagavad_gita",
+      "chapter": 4,
+      "verse": 7,
+      "ordinalIndex": 100407,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "Whenever there is decay of righteousness, O Bhârata, and there is exaltation of unrighteousness, then I Myself come forth." }
+      ],
+      "tags": ["divine-help", "the-low-point", "intervention"]
+    },
+    {
+      "externalId": "BG_4.39",
+      "book": "bhagavad_gita",
+      "chapter": 4,
+      "verse": 39,
+      "ordinalIndex": 100439,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "The man who is full of faith obtaineth wisdom, and he also who hath mastery over his senses; and having obtained wisdom, swiftly he goeth to the supreme peace." }
+      ],
+      "tags": ["faith", "shraddha", "wisdom", "peace"]
+    },
+    {
+      "externalId": "BG_5.10",
+      "book": "bhagavad_gita",
+      "chapter": 5,
+      "verse": 10,
+      "ordinalIndex": 100510,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "He who, having abandoned attachment, acteth, resigning his actions to the Eternal, is not tainted by sin, as a lotus-leaf by the waters." }
+      ],
+      "tags": ["non-attachment", "surrender", "purity", "lotus-leaf"]
+    },
+    {
+      "externalId": "BG_9.22",
+      "book": "bhagavad_gita",
+      "chapter": 9,
+      "verse": 22,
+      "ordinalIndex": 100922,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "The men who, meditating on Me as non-separate, worship Me all around — to those ever-harmonised, I bring full security and supply." }
+      ],
+      "tags": ["divine-help", "trust", "yoga-kshema", "security"]
+    },
+    {
+      "externalId": "BG_9.27",
+      "book": "bhagavad_gita",
+      "chapter": 9,
+      "verse": 27,
+      "ordinalIndex": 100927,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "Whatsoever thou doest, whatsoever thou eatest, whatsoever thou offerest, whatsoever thou givest, whatsoever thou doest of austerity, O Kaunteya, do thou that as an offering unto Me." }
+      ],
+      "tags": ["offering", "every-act-as-practice", "ishvara-pranidhana", "all-of-life"]
+    },
+    {
+      "externalId": "BG_12.13",
+      "book": "bhagavad_gita",
+      "chapter": 12,
+      "verse": 13,
+      "ordinalIndex": 101213,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "He who beareth no ill-will to any being, friendly and compassionate, without attachment and egoism, balanced in pleasure and pain, and forgiving..." }
+      ],
+      "tags": ["compassion", "forgiveness", "non-egoism", "qualities-of-the-devotee"]
+    },
+    {
+      "externalId": "BG_16.21",
+      "book": "bhagavad_gita",
+      "chapter": 16,
+      "verse": 21,
+      "ordinalIndex": 101621,
+      "translations": [
+        { "translator": "besant", "editionYear": 1895, "englishText": "The threefold gate of hell, destructive of the self, is lust, anger, and greed; therefore let man renounce these three." }
+      ],
+      "tags": ["lust", "anger", "greed", "three-gates-to-hell", "self-destruction"]
+    },
+
+    {
+      "externalId": "YS_1.2",
+      "book": "yoga_sutras",
+      "chapter": 1,
+      "verse": 2,
+      "ordinalIndex": 200102,
+      "translations": [
+        { "translator": "vivekananda", "editionYear": 1896, "englishText": "Yoga is restraining the mind-stuff (Chitta) from taking various forms (Vrittis)." },
+        { "translator": "johnston", "editionYear": 1912, "englishText": "Yoga is the control of the versatile psychic nature." }
+      ],
+      "tags": ["yoga-defined", "stilling-the-mind", "first-principle"]
+    },
+    {
+      "externalId": "YS_1.3",
+      "book": "yoga_sutras",
+      "chapter": 1,
+      "verse": 3,
+      "ordinalIndex": 200103,
+      "translations": [
+        { "translator": "vivekananda", "editionYear": 1896, "englishText": "At that time (the time of concentration) the seer (Purusha) rests in his own (unmodified) state." }
+      ],
+      "tags": ["the-seer", "the-witness", "rest-in-the-self"]
+    },
+    {
+      "externalId": "YS_1.4",
+      "book": "yoga_sutras",
+      "chapter": 1,
+      "verse": 4,
+      "ordinalIndex": 200104,
+      "translations": [
+        { "translator": "vivekananda", "editionYear": 1896, "englishText": "At other times (other than that of concentration) the seer is identified with the modifications." }
+      ],
+      "tags": ["mistaken-identity", "ego-with-modifications", "the-self"]
+    },
+    {
+      "externalId": "YS_2.46",
+      "book": "yoga_sutras",
+      "chapter": 2,
+      "verse": 46,
+      "ordinalIndex": 200246,
+      "translations": [
+        { "translator": "vivekananda", "editionYear": 1896, "englishText": "Posture is that which is firm and pleasant." },
+        { "translator": "johnston", "editionYear": 1912, "englishText": "Right poise must be firm and without strain." }
+      ],
+      "tags": ["asana", "steadiness-and-ease", "the-body", "sthira-sukham"]
+    },
+    {
+      "externalId": "ChandogyaUp_6.8.7",
+      "book": "chandogya_upanishad",
+      "chapter": 8,
+      "verse": 7,
+      "subVerse": 6,
+      "ordinalIndex": 800607,
+      "translations": [
+        { "translator": "muller", "editionYear": 1879, "englishText": "That which is the subtle essence — in it all that exists has its self. It is the True. It is the Self. That art thou, O Shvetaketu." }
+      ],
+      "tags": ["tat-tvam-asi", "non-dual", "the-great-saying", "you-are-that"]
     }
   ]
 }

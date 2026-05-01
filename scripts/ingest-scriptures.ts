@@ -392,8 +392,16 @@ async function reportStats() {
 async function main() {
   const t0 = Date.now();
 
+  const includeLicensed =
+    process.env.INCLUDE_LICENSED_TRANSLATIONS === "true";
+  if (includeLicensed) {
+    console.log(
+      "⚠  INCLUDE_LICENSED_TRANSLATIONS=true — loading copyrighted translations (dev only)."
+    );
+  }
+
   console.log("Loading corpus from data/scriptures/…");
-  const corpus = loadCorpus();
+  const corpus = loadCorpus(undefined, { includeLicensed });
   console.log(`✓ loaded ${corpus.length} verses\n`);
 
   await ensureIndexes();

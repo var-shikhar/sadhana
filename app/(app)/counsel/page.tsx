@@ -97,7 +97,7 @@ export default function CounselPage() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-ink"
+      className="fixed inset-0 z-50 flex flex-col bg-ink overflow-hidden"
       style={{
         backgroundImage:
           "radial-gradient(ellipse at top, rgba(43,24,16,0.6) 0%, transparent 70%), radial-gradient(ellipse at bottom, rgba(26,18,8,1) 0%, rgba(13,6,4,1) 100%)",

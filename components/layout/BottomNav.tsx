@@ -69,8 +69,17 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
   return <>{icons[name]}</>;
 }
 
+/** Routes that take over the full viewport and should not show BottomNav. */
+const HIDE_NAV_ROUTES = ["/counsel"];
+
 export function BottomNav() {
   const pathname = usePathname();
+
+  // Counsel is a full-screen dark takeover — the nav at the bottom would
+  // visually cover the chat composer at the same z-index.
+  if (HIDE_NAV_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+    return null;
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gold/40 bg-ivory/95 backdrop-blur supports-backdrop-filter:bg-ivory/80">

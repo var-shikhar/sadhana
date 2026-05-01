@@ -35,22 +35,51 @@ interface CorpusFile {
   verses: CorpusVerse[];
 }
 
+interface LoadCorpusOptions {
+  /** When true, also load files under `_licensed/` (BBT, Easwaran, Iyengar,
+   *  etc. — copyrighted translations kept out of git via .gitignore). Set
+   *  via `INCLUDE_LICENSED_TRANSLATIONS=true` in `.env.local`. */
+  includeLicensed?: boolean;
+}
+
 /**
  * Load every JSON corpus file in `data/scriptures/` (recursively) and
  * merge their verses into a single deduplicated array.
  *
  * Verses are de-duplicated by `externalId` — later files cannot override
- * earlier ones (we throw if a duplicate is detected so collisions surface).
+ * earlier ones; we throw if a duplicate is detected so collisions surface.
+ *
+ * **Licensed translations** (`_licensed/` subdirectory) are skipped unless
+ * `includeLicensed: true` is passed. This keeps copyrighted text isolated
+ * for dev use only — production deploys must run with the flag off until
+ * proper licensing is in place.
  */
-export function loadCorpus(rootDir = "data/scriptures"): CorpusVerse[] {
+export function loadCorpus(
+  rootDir = "data/scriptures",
+  options: LoadCorpusOptions = {}
+): CorpusVerse[] {
   const absRoot = path.resolve(rootDir);
   if (!fs.existsSync(absRoot)) {
     throw new Error(`Corpus directory not found: ${absRoot}`);
   }
 
-  const files = walkJsonFiles(absRoot);
-  const seen = new Map<string, string>(); // externalId → file
-  const merged: CorpusVerse[] = [];
+  const allFiles = walkJsonFiles(absRoot);
+  const files = options.includeLicensed
+    ? allFiles
+    : allFiles.filter((f) => !f.includes(path.sep + "_licensed" + path.sep));
+
+  const skipped = allFiles.length - files.length;
+  if (skipped > 0 && !options.includeLicensed) {
+    console.log(
+      `(skipping ${skipped} licensed corpus file${skipped === 1 ? "" : "s"} — set INCLUDE_LICENSED_TRANSLATIONS=true to include)`
+    );
+  }
+
+  // externalId → merged verse. Multiple files (e.g. _starter.json defining
+  // BG_2.47 with Besant + Arnold, then _licensed/…json adding Prabhupada)
+  // accumulate translations + tags + xrefs onto the same verse.
+  const byId = new Map<string, CorpusVerse>();
+  const sourceFiles = new Map<string, string>(); // externalId → first-defining file
 
   for (const file of files) {
     const raw = fs.readFileSync(file, "utf-8");
@@ -73,18 +102,66 @@ export function loadCorpus(rootDir = "data/scriptures"): CorpusVerse[] {
           ).slice(0, 80)}…`
         );
       }
-      const prev = seen.get(v.externalId);
-      if (prev) {
+
+      const existing = byId.get(v.externalId);
+      if (!existing) {
+        // First time we've seen this verse — clone arrays so future merges
+        // don't mutate the source object.
+        byId.set(v.externalId, {
+          ...v,
+          translations: [...(v.translations ?? [])],
+          tags: [...(v.tags ?? [])],
+          crossReferences: v.crossReferences ? [...v.crossReferences] : undefined,
+        });
+        sourceFiles.set(v.externalId, file);
+        continue;
+      }
+
+      // Structural fields must match exactly across files
+      if (
+        existing.book !== v.book ||
+        existing.chapter !== v.chapter ||
+        existing.verse !== v.verse ||
+        existing.ordinalIndex !== v.ordinalIndex
+      ) {
         throw new Error(
-          `Duplicate verse externalId "${v.externalId}" — found in ${prev} and ${file}`
+          `Verse "${v.externalId}" has conflicting structure between ` +
+            `${sourceFiles.get(v.externalId)} and ${file} ` +
+            `(check chapter/verse/book/ordinalIndex)`
         );
       }
-      seen.set(v.externalId, file);
-      merged.push(v);
+
+      // Merge: accumulate translations (deduped by translator), tags, xrefs
+      const existingTranslators = new Set(existing.translations.map((t) => t.translator));
+      for (const t of v.translations ?? []) {
+        if (!existingTranslators.has(t.translator)) {
+          existing.translations.push(t);
+          existingTranslators.add(t.translator);
+        }
+      }
+      const existingTagSet = new Set(existing.tags);
+      for (const tag of v.tags ?? []) {
+        if (!existingTagSet.has(tag)) {
+          existing.tags.push(tag);
+          existingTagSet.add(tag);
+        }
+      }
+      if (v.crossReferences && v.crossReferences.length > 0) {
+        existing.crossReferences = [
+          ...(existing.crossReferences ?? []),
+          ...v.crossReferences,
+        ];
+      }
+      if (!existing.sanskritDevanagari && v.sanskritDevanagari) {
+        existing.sanskritDevanagari = v.sanskritDevanagari;
+      }
+      if (!existing.sanskritIast && v.sanskritIast) {
+        existing.sanskritIast = v.sanskritIast;
+      }
     }
   }
 
-  return merged;
+  return Array.from(byId.values());
 }
 
 function walkJsonFiles(dir: string): string[] {

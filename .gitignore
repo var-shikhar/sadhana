@@ -47,3 +47,8 @@ CLAUDE.md
 AGENTS.md
 .claude
 docs
+
+# Licensed scripture translations (BBT, Easwaran, Iyengar, etc.) — dev-only.
+# Stays on local machines. Public deploys must request proper licensing.
+data/scriptures/_licensed/
+
