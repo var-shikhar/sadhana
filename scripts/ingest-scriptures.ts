@@ -2,7 +2,7 @@ import "dotenv/config";
 import dotenv from "dotenv";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, and, sql as dsql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import * as schema from "../lib/db/schema";
 import { FIXTURE_VERSES, type FixtureVerse } from "../lib/scripture/fixture";
 import { embedTexts } from "../lib/scripture/embed";
