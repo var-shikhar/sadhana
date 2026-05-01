@@ -356,6 +356,9 @@ export const verseTranslations = pgTable(
     translator: translatorEnum("translator").notNull(),
     editionYear: integer("edition_year"),
     englishText: text("english_text").notNull(),
+    /** SHA-256 (16 hex chars) of english_text — used to skip re-embedding
+     *  unchanged translations on subsequent ingestion runs. */
+    textHash: text("text_hash"),
     embedding: vector("embedding", { dimensions: 1536 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
