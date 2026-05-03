@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 
 interface GuidedExplainerProps {
   /** The plain-English question or label for the section. */
@@ -33,13 +34,13 @@ export function GuidedExplainer({
   return (
     <div className={cn("space-y-1", className)}>
       <p className="font-lyric text-lg text-ink leading-tight">{question}</p>
-      <button
+      <ButtonBare
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="font-lyric-italic text-xs text-saffron hover:text-saffron/80 underline-offset-2 hover:underline"
       >
         {open ? "got it" : "tell me more"}
-      </button>
+      </ButtonBare>
       {open && (
         <div className="mt-2 rounded border-l-2 border-saffron/50 bg-ivory-deep/60 px-3 py-2 space-y-1.5">
           <p className="font-lyric-italic text-sm text-earth-deep leading-relaxed">

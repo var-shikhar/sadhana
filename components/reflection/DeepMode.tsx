@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonBare } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EMOTIONS, type Emotion } from "@/types";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
@@ -104,7 +104,7 @@ export function DeepMode({ onSubmit }: DeepModeProps) {
                 {EMOTIONS.negative.map((emotion) => {
                   const sel = data.cbtFeeling.includes(emotion);
                   return (
-                    <button
+                    <ButtonBare
                       type="button"
                       key={emotion}
                       onClick={() => selectEmotion(emotion)}
@@ -114,7 +114,7 @@ export function DeepMode({ onSubmit }: DeepModeProps) {
                       )}
                     >
                       {emotion}
-                    </button>
+                    </ButtonBare>
                   );
                 })}
               </div>
@@ -125,7 +125,7 @@ export function DeepMode({ onSubmit }: DeepModeProps) {
                 {EMOTIONS.positive.map((emotion) => {
                   const sel = data.cbtFeeling.includes(emotion);
                   return (
-                    <button
+                    <ButtonBare
                       type="button"
                       key={emotion}
                       onClick={() => selectEmotion(emotion)}
@@ -135,7 +135,7 @@ export function DeepMode({ onSubmit }: DeepModeProps) {
                       )}
                     >
                       {emotion}
-                    </button>
+                    </ButtonBare>
                   );
                 })}
               </div>

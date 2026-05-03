@@ -216,18 +216,19 @@ export default function SettingsPage() {
       <GoldRule width="section" />
 
       <section className="space-y-3">
-        <LabelTiny className="block">Reflection chips</LabelTiny>
+        <LabelTiny className="block">Acts</LabelTiny>
         <Card className="bg-ivory-deep border-gold/40">
           <CardContent className="pt-6 pb-6 space-y-3">
             <p className="font-lyric-italic text-sm text-earth-deep">
-              The vocabulary you use on the Reflect tab — Good, Neutral, Bad.
-              Add chips, rename them, or move them between buckets.
+              The acts you tally on the Reflect tab — small repeating things
+              you do across a day. Add new acts, rename them, or move them
+              between Good · Neutral · Bad.
             </p>
             <Link
               href="/settings/reflection-chips"
               className="inline-flex items-center gap-2 font-pressure-caps text-[10px] text-saffron underline-offset-4 hover:underline"
             >
-              Open chip library →
+              Manage your acts →
             </Link>
           </CardContent>
         </Card>

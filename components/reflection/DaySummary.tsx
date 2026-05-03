@@ -1,19 +1,19 @@
-"use client";
+"use client"
 
-import { Textarea } from "@/components/ui/textarea";
-import { LabelTiny } from "@/components/gurukul/LabelTiny";
+import { Textarea } from "@/components/ui/textarea"
+import { LabelTiny } from "@/components/gurukul/LabelTiny"
 
 interface DaySummaryProps {
-  value: string;
-  onChange: (value: string) => void;
+  value: string
+  onChange: (value: string) => void
   /** Visible character cap. */
-  max?: number;
+  max?: number
   /** Read-only display mode (used on the completed-state card). */
-  readOnly?: boolean;
+  readOnly?: boolean
 }
 
 const PLACEHOLDER =
-  "the day, in a sentence — what it was, where it landed, what it gave you…";
+  "the day, in a sentence — what it was, where it landed, what it gave you…"
 
 export function DaySummary({
   value,
@@ -29,7 +29,7 @@ export function DaySummary({
           {value || <span className="text-earth-mid">— left unsealed —</span>}
         </p>
       </div>
-    );
+    )
   }
 
   return (
@@ -44,9 +44,9 @@ export function DaySummary({
         value={value}
         onChange={(e) => onChange(e.target.value.slice(0, max))}
         placeholder={PLACEHOLDER}
-        rows={3}
+        rows={5}
         className="bg-ivory border-gold/40 font-lyric-italic text-[14px] leading-relaxed"
       />
     </div>
-  );
+  )
 }

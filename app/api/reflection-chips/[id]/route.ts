@@ -7,12 +7,21 @@ import type { ChipCategory, ReflectionChip } from "@/types";
 
 const VALID_CATEGORIES: ChipCategory[] = ["good", "bad", "neutral"];
 
+function normalizeActName(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[\s.,!?;:'"-]+$/, "")
+    .replace(/\s+/g, " ");
+}
+
 function dbToType(row: typeof reflectionChips.$inferSelect): ReflectionChip {
   return {
     id: row.id,
     userId: row.userId,
     name: row.name,
     category: row.category,
+    groupId: row.groupId ?? null,
     sortOrder: row.sortOrder,
     isActive: row.isActive,
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
@@ -35,6 +44,8 @@ export async function PATCH(
     category: ChipCategory;
     sortOrder: number;
     isActive: boolean;
+    /** null clears the group (back to "All / Global"); a uuid sets it. */
+    groupId: string | null;
   }>;
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -53,6 +64,51 @@ export async function PATCH(
   }
   if (typeof body.sortOrder === "number") updates.sortOrder = body.sortOrder;
   if (typeof body.isActive === "boolean") updates.isActive = body.isActive;
+  if (body.groupId === null || typeof body.groupId === "string") {
+    updates.groupId = body.groupId;
+  }
+
+  // Duplicate check inside the destination group when name or group is
+  // changing. Mirror the client-side normalization.
+  if (typeof updates.name === "string" || updates.groupId !== undefined) {
+    const [self] = await db
+      .select()
+      .from(reflectionChips)
+      .where(
+        and(eq(reflectionChips.id, id), eq(reflectionChips.userId, auth.userId))
+      )
+      .limit(1);
+    if (!self) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const nextName = (updates.name as string | undefined) ?? self.name;
+    const nextGroupId =
+      updates.groupId !== undefined
+        ? (updates.groupId as string | null)
+        : (self.groupId ?? null);
+    const proposedNorm = normalizeActName(nextName);
+
+    const peers = await db
+      .select()
+      .from(reflectionChips)
+      .where(eq(reflectionChips.userId, auth.userId));
+
+    const dup = peers.find(
+      (p) =>
+        p.id !== id &&
+        (p.groupId ?? null) === nextGroupId &&
+        normalizeActName(p.name) === proposedNorm
+    );
+    if (dup) {
+      return NextResponse.json(
+        {
+          error: `"${dup.name}" already exists in ${
+            nextGroupId ? "this group" : "All / Global"
+          }.`,
+        },
+        { status: 409 }
+      );
+    }
+  }
 
   const [row] = await db
     .update(reflectionChips)

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 
 interface PriorityPickerProps {
   value: number; // 1..5
@@ -24,7 +25,7 @@ export function PriorityPicker({ value, onChange, className }: PriorityPickerPro
           const active = p <= value;
           const isSelected = p === value;
           return (
-            <button
+            <ButtonBare
               type="button"
               key={p}
               onClick={() => onChange(p)}

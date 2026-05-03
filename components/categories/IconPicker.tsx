@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 import { CATEGORY_ICONS } from "@/types";
 
 interface IconPickerProps {
@@ -15,7 +16,7 @@ export function IconPicker({ value, onChange, className }: IconPickerProps) {
       {CATEGORY_ICONS.map((icon) => {
         const active = value === icon;
         return (
-          <button
+          <ButtonBare
             type="button"
             key={icon}
             onClick={() => onChange(icon)}
@@ -29,7 +30,7 @@ export function IconPicker({ value, onChange, className }: IconPickerProps) {
             )}
           >
             {icon}
-          </button>
+          </ButtonBare>
         );
       })}
     </div>

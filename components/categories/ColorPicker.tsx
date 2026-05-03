@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 import { CATEGORY_COLORS, type CategoryColor } from "@/types";
 
 interface ColorPickerProps {
@@ -15,7 +16,7 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
       {CATEGORY_COLORS.map((c) => {
         const active = value === c.value;
         return (
-          <button
+          <ButtonBare
             type="button"
             key={c.value}
             onClick={() => onChange(c.value)}

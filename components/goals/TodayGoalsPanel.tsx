@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useTodayGoals, useToggleTodayGoal } from "@/hooks/useTodayGoals";
 import { HabitDot } from "@/components/gurukul/HabitDot";
 import { CATEGORY_COLORS } from "@/types";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonBare } from "@/components/ui/button";
 
 interface TodayGoalsPanelProps {
   className?: string;
@@ -122,7 +122,7 @@ function GoalRow({
   if (goal.shape === "daily") {
     return (
       <div className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-ivory-deep/50 transition-colors">
-        <button
+        <ButtonBare
           type="button"
           aria-label={goal.todayDone ? "Mark not done" : "Mark done"}
           onClick={() => onToggle(!goal.todayDone)}
@@ -132,7 +132,7 @@ function GoalRow({
             state={goal.todayDone ? "complete" : "pending"}
             size={16}
           />
-        </button>
+        </ButtonBare>
         <span
           className={cn(
             "font-lyric text-sm text-ink flex-1 leading-tight",
@@ -163,14 +163,14 @@ function GoalRow({
           {goal.weekTotal ?? 0}/{goal.weeklyTarget ?? 0}
         </span>
         {!goal.isMet && (
-          <button
+          <ButtonBare
             type="button"
             onClick={() => onToggle(true)}
             disabled={busy}
             className="font-pressure-caps text-[9px] text-saffron hover:text-saffron/80"
           >
             +1
-          </button>
+          </ButtonBare>
         )}
       </div>
     );

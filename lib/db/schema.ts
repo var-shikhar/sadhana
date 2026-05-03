@@ -279,10 +279,36 @@ export const reflections = pgTable(
 );
 
 /**
+ * Optional grouping for acts. A group has a name + an active toggle. When a
+ * group is inactive, none of its acts appear in the reflect-page chip rail
+ * (independent of the per-act isActive toggle). Acts with group_id = null
+ * belong to the implicit "All / Global" bucket and are always available.
+ */
+export const actGroups = pgTable(
+  "act_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    unique("act_groups_user_name_unique").on(table.userId, table.name),
+    index("act_groups_user_active_idx").on(table.userId, table.isActive),
+  ]
+);
+
+/**
  * The user's persistent chip library — the dictionary they curate over time.
  * Each chip has a default category (good / bad / neutral) but the same chip
  * can be re-classified per-day if the user wants (the day's selection is the
  * source of truth for that day, stored in reflections.{good,bad,neutral}_chips).
+ *
+ * groupId optionally ties a chip to an act group. If the group is inactive
+ * (or the chip itself is inactive), the chip is hidden from the reflect rail.
  */
 export const reflectionChips = pgTable(
   "reflection_chips",
@@ -291,6 +317,9 @@ export const reflectionChips = pgTable(
     userId: text("user_id").notNull(),
     name: text("name").notNull(),
     category: chipCategoryEnum("category").notNull(),
+    groupId: uuid("group_id").references(() => actGroups.id, {
+      onDelete: "set null",
+    }),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     /** When the chip was last selected — drives recency-based ordering. */
@@ -301,8 +330,13 @@ export const reflectionChips = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [
-    unique("reflection_chips_user_name_unique").on(table.userId, table.name),
+    // Same act name is allowed across different groups; each (user, name, group)
+    // pair is unique. NULL group_id (Global) is treated as a distinct bucket.
+    unique("reflection_chips_user_name_group_unique")
+      .on(table.userId, table.name, table.groupId)
+      .nullsNotDistinct(),
     index("reflection_chips_user_active_idx").on(table.userId, table.isActive),
+    index("reflection_chips_group_idx").on(table.groupId),
   ]
 );
 

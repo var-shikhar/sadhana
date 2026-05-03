@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Button, ButtonBare } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,6 @@ interface SelectedChip {
 }
 
 interface DescriptionModalProps {
-  open: boolean;
   /** Every chip the user picked across all three buckets, in their natural order. */
   selected: SelectedChip[];
   /** Existing descriptions (chip name → text). */
@@ -36,35 +35,18 @@ const CATEGORY_PLACEHOLDER: Record<ChipCategory, string> = {
 };
 
 export function DescriptionModal({
-  open,
   selected,
   initial,
   onConfirm,
   onClose,
 }: DescriptionModalProps) {
+  // State initialises from props on mount. The parent conditionally renders
+  // this component, so each open is a fresh mount — no effect-sync needed.
   const [descriptions, setDescriptions] = useState<Record<string, string>>(initial);
   const [activeChip, setActiveChip] = useState<string | null>(
     selected[0]?.name ?? null
   );
   const [submitting, setSubmitting] = useState(false);
-
-  // Sync if the initial set changes (e.g. user reopens modal after editing).
-  useEffect(() => {
-    setDescriptions(initial);
-    setActiveChip(selected[0]?.name ?? null);
-  }, [open, initial, selected]);
-
-  // ESC to close.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
 
   const active = selected.find((c) => c.name === activeChip) ?? selected[0];
   const filledCount = Object.values(descriptions).filter(
@@ -92,11 +74,10 @@ export function DescriptionModal({
       aria-modal="true"
       aria-labelledby="desc-modal-title"
     >
-      {/* Parchment-darkened backdrop */}
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
+      {/* Parchment-darkened backdrop — non-interactive; the modal can only
+          be closed via the explicit Back button in the footer. */}
+      <div
+        aria-hidden="true"
         className="absolute inset-0 bg-indigo-deep/60 backdrop-blur-[2px] animate-in fade-in duration-200"
       />
 
@@ -129,7 +110,7 @@ export function DescriptionModal({
         {selected.length === 0 ? (
           <div className="px-5 pb-5 text-center">
             <p className="font-lyric-italic text-sm text-earth-mid">
-              Nothing selected — go back and tap a few chips first.
+              Nothing selected — go back and tap a few acts first.
             </p>
             <Button onClick={onClose} className="mt-4">
               Back
@@ -144,7 +125,7 @@ export function DescriptionModal({
                   const has = (descriptions[chip.name] ?? "").trim().length > 0;
                   const isActive = chip.name === active?.name;
                   return (
-                    <button
+                    <ButtonBare
                       type="button"
                       key={chip.name}
                       onClick={() => setActiveChip(chip.name)}
@@ -163,7 +144,7 @@ export function DescriptionModal({
                           ✓
                         </span>
                       )}
-                    </button>
+                    </ButtonBare>
                   );
                 })}
               </div>

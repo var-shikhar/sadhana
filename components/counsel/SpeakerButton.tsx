@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 
 interface SpeakerButtonProps {
   isSpeaking: boolean;
@@ -18,7 +19,7 @@ export function SpeakerButton({
   if (!supported) return null;
 
   return (
-    <button
+    <ButtonBare
       type="button"
       onClick={onToggle}
       aria-label={isSpeaking ? "Stop speaking" : "Speak this aloud"}
@@ -52,6 +53,6 @@ export function SpeakerButton({
         {!isSpeaking && <line x1="17" y1="9" x2="23" y2="15" />}
       </svg>
       <span>{isSpeaking ? "Speaking" : "Speak"}</span>
-    </button>
+    </ButtonBare>
   );
 }

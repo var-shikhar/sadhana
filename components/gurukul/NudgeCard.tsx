@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 import type { Nudge } from "@/lib/prompts/observer";
 
 interface NudgeCardProps {
@@ -51,14 +52,14 @@ export function NudgeCard({ nudge, onDismiss, className }: NudgeCardProps) {
           {s.label}
         </span>
         {onDismiss && (
-          <button
+          <ButtonBare
             type="button"
             aria-label="Dismiss"
             onClick={() => onDismiss(nudge.id)}
             className="text-earth-mid/60 hover:text-earth-mid transition-colors text-lg leading-none"
           >
             ×
-          </button>
+          </ButtonBare>
         )}
       </div>
       <p className="font-lyric text-base text-ink leading-snug">{nudge.title}</p>

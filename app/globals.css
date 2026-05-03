@@ -123,4 +123,46 @@
   .font-pressure-caps { font-family: var(--font-pressure-family); font-weight: 800; letter-spacing: 4px; text-transform: uppercase; }
   .font-lyric-italic { font-family: var(--font-lyric-family); font-style: italic; }
   .label-tiny { font-family: var(--font-sans); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; font-weight: 500; color: var(--color-earth-mid); }
+
+  /* ── Gurukul scrollbar ──
+     Parchment-toned track, gold-leaf thumb that deepens to saffron on hover.
+     Applied globally to all scrollable surfaces (window, divs, textareas).
+     Webkit handles Chrome / Safari / Edge; Firefox uses scrollbar-color. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold) var(--ivory-deep);
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: var(--ivory-deep);
+    border-left: 1px solid color-mix(in oklab, var(--gold) 30%, transparent);
+  }
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      var(--gold) 0%,
+      color-mix(in oklab, var(--gold) 80%, var(--earth-mid)) 100%
+    );
+    border-radius: 8px;
+    border: 2px solid var(--ivory-deep); /* gives the thumb a parchment inset */
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      var(--saffron) 0%,
+      var(--earth-deep) 100%
+    );
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:active {
+    background: var(--saffron);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-corner {
+    background: var(--ivory-deep);
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 
 interface MicButtonProps {
   isListening: boolean;
@@ -77,7 +78,7 @@ export function MicButton({
 
   return (
     <div className="relative">
-      <button
+      <ButtonBare
         type="button"
         onClick={handleClick}
         disabled={disabled}
@@ -116,7 +117,7 @@ export function MicButton({
             <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" />
           )}
         </svg>
-      </button>
+      </ButtonBare>
 
       {showTooltip && tooltipText && (
         <div

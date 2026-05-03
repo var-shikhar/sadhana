@@ -1,7 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonBare } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { GoalWithProgress } from "@/types";
 import { HabitDot } from "@/components/gurukul/HabitDot";
@@ -34,7 +34,7 @@ export function GoalCard({
     >
       <div className="flex items-start gap-3">
         {goal.shape === "daily" ? (
-          <button
+          <ButtonBare
             type="button"
             aria-label={goal.progress.todayDone ? "Mark not done" : "Mark done"}
             onClick={() => onToggleToday?.(!goal.progress.todayDone)}
@@ -45,7 +45,7 @@ export function GoalCard({
               state={goal.progress.todayDone ? "complete" : "pending"}
               size={20}
             />
-          </button>
+          </ButtonBare>
         ) : (
           <span aria-hidden className="mt-1 font-pressure text-saffron text-lg">
             {goal.shape === "weekly" ? "//" : "→"}

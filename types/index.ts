@@ -158,10 +158,29 @@ export interface ReflectionChip {
   userId: string;
   name: string;
   category: ChipCategory;
+  /** Optional act-group membership. null → "All / Global" (always visible). */
+  groupId: string | null;
   sortOrder: number;
   isActive: boolean;
   lastUsedAt: string | null;
   useCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Act Groups ──
+/**
+ * An optional grouping for acts. Acts can belong to one group (or to none =
+ * the implicit "All / Global" bucket). Toggling a group inactive hides every
+ * act inside it from the reflect-page chip rail without deleting anything —
+ * useful for project-specific act sets that come and go.
+ */
+export interface ActGroup {
+  id: string;
+  userId: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }

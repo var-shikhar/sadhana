@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonBare } from "@/components/ui/button";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { GuidedExplainer } from "@/components/gurukul/GuidedExplainer";
@@ -128,12 +128,12 @@ export default function CategoriesPage() {
         )}
 
         <p className="text-center text-xs text-earth-mid pt-2">
-          <button
+          <ButtonBare
             onClick={() => setMode("browse")}
             className="hover:text-saffron"
           >
             ← cancel
-          </button>
+          </ButtonBare>
         </p>
       </div>
     );

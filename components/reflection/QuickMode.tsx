@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonBare } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PITFALL_TAGS, familyForTag, type PitfallTag } from "@/types";
 
@@ -39,7 +39,7 @@ export function QuickMode({ onSubmit }: QuickModeProps) {
             const selected = selectedTags.includes(tag);
             const borderColor = family === "Restraint" ? "border-sage" : "border-saffron";
             return (
-              <button
+              <ButtonBare
                 key={tag}
                 type="button"
                 onClick={() => toggleTag(tag)}
@@ -54,7 +54,7 @@ export function QuickMode({ onSubmit }: QuickModeProps) {
                 )}
               >
                 {tag}
-              </button>
+              </ButtonBare>
             );
           })}
         </div>

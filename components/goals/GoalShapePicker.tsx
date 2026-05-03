@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 import { GOAL_SHAPE_DEFS, type GoalShape } from "@/types";
 
 interface GoalShapePickerProps {
@@ -21,7 +22,7 @@ export function GoalShapePicker({ value, onChange, className }: GoalShapePickerP
       {GOAL_SHAPE_DEFS.map((def) => {
         const active = value === def.shape;
         return (
-          <button
+          <ButtonBare
             type="button"
             key={def.shape}
             onClick={() => onChange(def.shape)}
@@ -51,7 +52,7 @@ export function GoalShapePicker({ value, onChange, className }: GoalShapePickerP
                 {def.example}
               </div>
             </div>
-          </button>
+          </ButtonBare>
         );
       })}
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 import type { RetrievedVerse } from "@/lib/scripture/retrieve";
 
 const BOOK_LABELS: Record<string, string> = {
@@ -134,14 +135,14 @@ export function SourcesModal({
               )}
             </p>
           </div>
-          <button
+          <ButtonBare
             type="button"
             onClick={onClose}
             aria-label="Close"
             className="text-parchment/40 hover:text-saffron text-2xl leading-none -mt-1 transition-colors"
           >
             ×
-          </button>
+          </ButtonBare>
         </div>
 
         {/* Content */}
@@ -172,7 +173,7 @@ export function SourcesModal({
                           : "border-earth-mid/30 bg-ink/50"
                       )}
                     >
-                      <button
+                      <ButtonBare
                         type="button"
                         onClick={() => toggle(v.externalId)}
                         className="w-full flex items-baseline justify-between gap-2 px-4 py-3 text-left"
@@ -208,7 +209,7 @@ export function SourcesModal({
                             ›
                           </span>
                         </div>
-                      </button>
+                      </ButtonBare>
 
                       {isExpanded && (
                         <div className="px-4 pb-4 space-y-4 animate-source-expand">

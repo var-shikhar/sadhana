@@ -6,6 +6,7 @@ import { OmGlyph } from "@/components/gurukul/OmGlyph";
 import { CitationChip } from "./CitationChip";
 import { SpeakerButton } from "./SpeakerButton";
 import { useSpeak } from "@/hooks/useSpeak";
+import { ButtonBare } from "@/components/ui/button";
 import type { CounselMessage } from "@/lib/stores/counsel";
 
 interface MessageBubbleProps {
@@ -141,7 +142,7 @@ export function MessageBubble({
 
         <div className="flex items-center gap-4 pt-1">
           {sourceCount > 0 && onOpenSources && (
-            <button
+            <ButtonBare
               type="button"
               onClick={onOpenSources}
               className={cn(
@@ -150,7 +151,7 @@ export function MessageBubble({
               )}
             >
               <span>↪ Sources · {sourceCount}</span>
-            </button>
+            </ButtonBare>
           )}
           <SpeakerButton
             isSpeaking={speak.isSpeaking}

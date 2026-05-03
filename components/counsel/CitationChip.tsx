@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { ButtonBare } from "@/components/ui/button";
 
 const BOOK_SHORT_LABEL: Record<string, string> = {
   BG: "Bhagavad Gita",
@@ -54,7 +55,7 @@ export function CitationChip({
   const refColor = variant === "dark" ? "text-parchment" : "text-ink";
 
   return (
-    <button
+    <ButtonBare
       type="button"
       onClick={onOpen}
       className={cn(
@@ -69,6 +70,6 @@ export function CitationChip({
         {book}
       </span>
       <span className={cn("font-lyric", refColor)}>{ref}</span>
-    </button>
+    </ButtonBare>
   );
 }
