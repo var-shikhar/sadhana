@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { db } from "@/lib/db";
 import { habits, userHabits, profiles } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { seedDefaultChipsIfEmpty } from "@/lib/reflection/default-chips";
 
 
 export async function POST(request: Request) {
@@ -39,6 +40,8 @@ export async function POST(request: Request) {
       .update(profiles)
       .set({ onboardingCompleted: true, updatedAt: new Date() })
       .where(eq(profiles.id, auth.userId));
+
+    await seedDefaultChipsIfEmpty(auth.userId);
   }
 
   return NextResponse.json({ success: true });

@@ -185,6 +185,21 @@ export interface ActGroup {
   updatedAt: string;
 }
 
+// ── Affirmations ──
+/**
+ * A single affirmation in the user's library. Flat list — no groups or
+ * categories. isActive is the pause flag.
+ */
+export interface Affirmation {
+  id: string;
+  userId: string;
+  text: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── Growth Scores ──
 export interface GrowthScore {
   id: string;

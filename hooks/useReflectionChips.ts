@@ -176,12 +176,9 @@ export function useDeleteReflectionChip() {
       const previous = qc.getQueryData<ReflectionChip[]>(
         queryKeys.reflectionChips()
       );
-      // Soft-delete on the server too — flip isActive off optimistically so
-      // the row vanishes from the visible (active-only) list immediately.
       qc.setQueryData<ReflectionChip[]>(
         queryKeys.reflectionChips(),
-        (old) =>
-          (old ?? []).map((c) => (c.id === id ? { ...c, isActive: false } : c))
+        (old) => (old ?? []).filter((c) => c.id !== id)
       );
       return { previous };
     },

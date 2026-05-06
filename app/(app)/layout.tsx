@@ -28,7 +28,7 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <main className="mx-auto max-w-lg px-4 py-6">{children}</main>
       <BottomNav />
     </div>

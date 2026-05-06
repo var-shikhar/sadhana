@@ -128,12 +128,12 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
   const { id } = await context.params;
 
-  // Soft delete — old reflections still reference chips by name (in the
-  // good_chips/bad_chips/neutral_chips arrays), so we keep the row to
-  // preserve history but flip isActive off.
+  // Hard delete. Reflections store chip names in text arrays
+  // (good_chips/bad_chips/neutral_chips), not FK references — so historical
+  // reflections continue to render correctly after the chip row is gone.
+  // The pause toggle (PATCH isActive) covers the "hide temporarily" case.
   const [row] = await db
-    .update(reflectionChips)
-    .set({ isActive: false, updatedAt: new Date() })
+    .delete(reflectionChips)
     .where(and(eq(reflectionChips.id, id), eq(reflectionChips.userId, auth.userId)))
     .returning();
 

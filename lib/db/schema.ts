@@ -340,6 +340,28 @@ export const reflectionChips = pgTable(
   ]
 );
 
+/**
+ * The user's personal affirmations — short statements they curate and revisit.
+ * Flat list (no groups or categories). isActive is the pause flag, mirroring
+ * reflection_chips, so we can hide an affirmation from any future surface
+ * without losing it.
+ */
+export const affirmations = pgTable(
+  "affirmations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    text: text("text").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("affirmations_user_active_idx").on(table.userId, table.isActive),
+  ]
+);
+
 export const growthScores = pgTable(
   "growth_scores",
   {

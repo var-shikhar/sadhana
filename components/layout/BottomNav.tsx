@@ -82,8 +82,8 @@ export function BottomNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gold/40 bg-ivory/95 backdrop-blur supports-backdrop-filter:bg-ivory/80">
-      <div className="mx-auto flex max-w-lg items-center justify-around py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gold/40 bg-ivory/95 backdrop-blur supports-backdrop-filter:bg-ivory/80 pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto flex max-w-lg items-stretch justify-around py-2">
         {NAV_ITEMS.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
@@ -91,12 +91,12 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1 text-xs transition-colors",
+                "flex flex-1 min-w-0 flex-col items-center gap-0.5 px-1 py-1 text-[10px] sm:text-xs transition-colors",
                 active ? "text-saffron" : "text-earth-mid"
               )}
             >
               <NavIcon name={item.icon} active={active} />
-              <span>{item.label}</span>
+              <span className="truncate max-w-full">{item.label}</span>
             </Link>
           );
         })}

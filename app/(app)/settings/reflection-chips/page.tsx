@@ -1,11 +1,11 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button, ButtonBare } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
 import { GoldRule } from "@/components/gurukul/GoldRule"
 import { cn } from "@/lib/utils"
@@ -97,18 +97,78 @@ export default function ReflectionChipsSettingsPage() {
     else if (next !== "all") setDraftGroupId(next)
   }
 
-  // ── Edit panel state — name, category, AND group together. ──
+  // ── Edit modal state — name, category, AND group together. ──
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
   const [editingCategory, setEditingCategory] = useState<ChipCategory>("good")
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
 
+  const editingChip = useMemo(
+    () => (editingId ? (chips.find((c) => c.id === editingId) ?? null) : null),
+    [chips, editingId],
+  )
+
   // ── Groups management section state ──
   const [newGroupName, setNewGroupName] = useState("")
   const [groupError, setGroupError] = useState<string | null>(null)
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null)
   const [renamingGroupName, setRenamingGroupName] = useState("")
+
+  // ── Seeding default starter acts (empty-state CTA) ──
+  const [seeding, setSeeding] = useState(false)
+
+  // ── Add-act / Add-group modals ──
+  const [addChipModalOpen, setAddChipModalOpen] = useState(false)
+  const [addGroupModalOpen, setAddGroupModalOpen] = useState(false)
+
+  const anyModalOpen =
+    addChipModalOpen || addGroupModalOpen || editingId !== null
+
+  useEffect(() => {
+    if (!anyModalOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [anyModalOpen])
+
+  function openAddChipModal() {
+    setCreateError(null)
+    setAddChipModalOpen(true)
+  }
+
+  function closeAddChipModal() {
+    setAddChipModalOpen(false)
+    setCreateError(null)
+  }
+
+  function openAddGroupModal() {
+    setGroupError(null)
+    setNewGroupName("")
+    setAddGroupModalOpen(true)
+  }
+
+  function closeAddGroupModal() {
+    setAddGroupModalOpen(false)
+    setGroupError(null)
+    setNewGroupName("")
+  }
+
+  async function handleSeedDefaults() {
+    setSeeding(true)
+    try {
+      const res = await fetch("/api/reflection-chips/seed-defaults", {
+        method: "POST",
+      })
+      if (res.ok) {
+        await qc.invalidateQueries({ queryKey: queryKeys.reflectionChips() })
+      }
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   const groupById = useMemo(() => {
     const map: Record<string, ActGroup> = {}
@@ -155,7 +215,7 @@ export default function ReflectionChipsSettingsPage() {
   }, [chips, groups])
 
   // ── Add-act handler ──
-  function handleCreate() {
+  async function handleCreate() {
     const name = draftName.trim()
     if (!name) return
     setCreateError(null)
@@ -177,20 +237,19 @@ export default function ReflectionChipsSettingsPage() {
 
     const targetGroup = draftGroupId ? groupById[draftGroupId] : null
     const isActive = targetGroup ? targetGroup.isActive : true
-    setDraftName("")
-    create.mutate(
-      {
+
+    try {
+      await create.mutateAsync({
         name,
         category: draftCategory,
         groupId: draftGroupId,
         isActive,
-      },
-      {
-        onError: (err) => {
-          setCreateError(err instanceof Error ? err.message : "Could not save")
-        },
-      },
-    )
+      })
+      setDraftName("")
+      setAddChipModalOpen(false)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Could not save")
+    }
   }
 
   // ── Edit-act handlers ──
@@ -257,19 +316,18 @@ export default function ReflectionChipsSettingsPage() {
   }
 
   // ── Group handlers ──
-  function handleCreateGroup() {
+  async function handleCreateGroup() {
     const name = newGroupName.trim()
     if (!name) return
     setGroupError(null)
-    setNewGroupName("")
-    createGroup.mutate(
-      { name },
-      {
-        onError: (err) => {
-          setGroupError(err instanceof Error ? err.message : "Could not save")
-        },
-      },
-    )
+
+    try {
+      await createGroup.mutateAsync({ name })
+      setNewGroupName("")
+      setAddGroupModalOpen(false)
+    } catch (err) {
+      setGroupError(err instanceof Error ? err.message : "Could not save")
+    }
   }
 
   /** Cascade: toggling a group flips its own isActive AND every child act's. */
@@ -385,95 +443,26 @@ export default function ReflectionChipsSettingsPage() {
 
       <GoldRule width="section" />
 
-      {/* ── Add an act (top) ── */}
-      <section className="space-y-3">
-        <LabelTiny className="block">Add an act</LabelTiny>
-        <Card className="bg-ivory-deep border-gold/40">
-          <CardContent className="pt-6 space-y-3">
-            <Input
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value.slice(0, 60))}
-              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-              placeholder="e.g. deep work block, scrolling, walked the dog"
-              className="bg-ivory border-gold/40 py-2"
-            />
-
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Category picker */}
-              <div className="flex rounded-full border border-gold/40 bg-ivory p-1">
-                {CHIP_CATEGORY_ORDER.map((cat) => {
-                  const meta = CHIP_CATEGORY_META[cat]
-                  const isActive = draftCategory === cat
-                  return (
-                    <ButtonBare
-                      key={cat}
-                      type="button"
-                      onClick={() => setDraftCategory(cat)}
-                      className={cn(
-                        "px-3 py-1 rounded-full text-[10px] font-pressure-caps tracking-wider transition-all flex items-center gap-1.5",
-                        isActive
-                          ? "bg-ink text-ivory shadow-sm"
-                          : "text-earth-deep hover:bg-ivory-deep",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          TONE_DOT[cat],
-                        )}
-                      />
-                      {meta.label}
-                    </ButtonBare>
-                  )
-                })}
-              </div>
-
-              {/* Group picker (select) */}
-              <div className="flex items-center gap-2">
-                <span className="label-tiny text-earth-mid">in</span>
-                <GroupSelect
-                  value={draftGroupId}
-                  onChange={setDraftGroupId}
-                  groups={groups}
-                />
-              </div>
-
-              <Button
-                onClick={handleCreate}
-                disabled={!draftName.trim()}
-                className="ml-auto"
-              >
-                Add
-              </Button>
-            </div>
-
-            {createError && (
-              <p className="text-[11px] text-saffron font-lyric-italic">
-                {createError}
-              </p>
-            )}
-            {draftGroupId &&
-              groupById[draftGroupId] &&
-              !groupById[draftGroupId].isActive && (
-                <p className="font-lyric-italic text-[10px] text-earth-mid">
-                  This group is paused — the new act will start paused too.
-                </p>
-              )}
-          </CardContent>
-        </Card>
-      </section>
+      {/* ── Add an act (opens modal) ── */}
+      <Button
+        type="button"
+        onClick={openAddChipModal}
+        className="w-full"
+      >
+        + Add an act
+      </Button>
 
       <GoldRule width="section" />
 
       {/* ── Library — filters + flat list ── */}
       <section className="space-y-3">
         {/* Single unified filter bar: label · category pills · gold hairline · group select */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center justify-between gap-3">
           <LabelTiny className="shrink-0">Your acts</LabelTiny>
 
           <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
             {/* Category pill group — compact */}
-            <div className="flex rounded-full border border-gold/40 bg-ivory p-0.5 shadow-[0_1px_2px_rgba(196,106,31,0.05)] shrink-0">
+            <div className="flex flex-wrap rounded-full border border-gold/40 bg-ivory p-0.5 shadow-[0_1px_2px_rgba(196,106,31,0.05)] shrink-0">
               {CATEGORY_FILTER_ORDER.map((f) => {
                 const isActive = categoryFilter === f
                 const label =
@@ -528,7 +517,7 @@ export default function ReflectionChipsSettingsPage() {
                 onChange={(e) =>
                   handleGroupFilterChange(e.target.value as GroupFilter)
                 }
-                className="appearance-none rounded-full border border-gold/40 bg-ivory pl-2.5 pr-6 py-1 text-[9px] font-pressure-caps tracking-wider text-earth-deep outline-none cursor-pointer hover:bg-ivory-deep focus:border-ink/40 transition-colors max-w-40 truncate shadow-[0_1px_2px_rgba(196,106,31,0.05)]"
+                className="appearance-none rounded-full border border-gold/40 bg-ivory pl-2.5 pr-6 py-1 text-[9px] font-pressure-caps tracking-wider text-earth-deep outline-none cursor-pointer hover:bg-ivory-deep focus:border-ink/40 transition-colors max-w-40 truncate shadow-[0_1px_2px_rgba(196,106,31,0.05)] w-full"
               >
                 <option value="all">All · {groupCounts.all}</option>
                 <option value="none">Global · {groupCounts.none}</option>
@@ -561,10 +550,18 @@ export default function ReflectionChipsSettingsPage() {
 
         {chips.length === 0 ? (
           <Card className="bg-ivory-deep border-gold/40">
-            <CardContent className="pt-6 pb-6 text-center">
+            <CardContent className="pt-6 pb-6 text-center space-y-3">
               <p className="font-lyric-italic text-sm text-earth-mid">
-                No acts yet. Add one above, or add inline on the Reflect tab.
+                No acts yet. Add one above, or start with a curated set.
               </p>
+              <ButtonBare
+                type="button"
+                onClick={() => void handleSeedDefaults()}
+                disabled={seeding}
+                className="text-[10px] font-pressure-caps tracking-wider bg-ink text-ivory rounded-md px-3 py-1.5 disabled:opacity-50"
+              >
+                {seeding ? "Adding…" : "Add starter pack"}
+              </ButtonBare>
             </CardContent>
           </Card>
         ) : visible.length === 0 ? (
@@ -590,199 +587,89 @@ export default function ReflectionChipsSettingsPage() {
                 <li
                   key={chip.id}
                   className={cn(
-                    "group relative transition-colors",
-                    isEditing ? "bg-ivory" : "hover:bg-ivory",
-                    !chip.isActive && !isEditing && "opacity-60",
+                    "group relative transition-colors hover:bg-ivory",
+                    !chip.isActive && "opacity-60",
+                    isEditing && "bg-ivory",
                   )}
                 >
-                  {isEditing ? (
-                    <div className="px-3 py-3 space-y-3">
-                      {/* Name */}
-                      <div className="space-y-1.5">
-                        <label className="label-tiny block">Name</label>
-                        <input
-                          autoFocus
-                          value={editingName}
-                          onChange={(e) => {
-                            setEditingName(e.target.value.slice(0, 60))
-                            setEditError(null)
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") commitEdit(chip)
-                            if (e.key === "Escape") cancelEdit()
-                          }}
-                          placeholder="rename this act…"
-                          className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
-                        />
-                      </div>
-
-                      {/* Category */}
-                      <div className="space-y-1.5">
-                        <label className="label-tiny block">
-                          Where it belongs
-                        </label>
-                        <div className="flex gap-1.5">
-                          {CHIP_CATEGORY_ORDER.map((cat) => {
-                            const m = CHIP_CATEGORY_META[cat]
-                            const isActive = editingCategory === cat
-                            return (
-                              <ButtonBare
-                                key={cat}
-                                type="button"
-                                onClick={() => setEditingCategory(cat)}
+                  <div className="flex items-stretch">
+                    <ButtonBare
+                      type="button"
+                      onClick={() => startEdit(chip)}
+                      className="flex-1 text-left px-3 py-2.5 min-w-0"
+                      aria-label={`Edit ${chip.name}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <p
+                            className={cn(
+                              "font-lyric text-[14px] truncate",
+                              chip.isActive
+                                ? "text-ink"
+                                : "text-earth-mid line-through",
+                            )}
+                          >
+                            {chip.name}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 font-pressure-caps tracking-wider text-earth-mid">
+                              <span
                                 className={cn(
-                                  "flex-1 rounded-full px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider transition-all flex items-center justify-center gap-1.5 border",
-                                  isActive
-                                    ? cn(
-                                        "bg-ink text-ivory shadow-sm",
-                                        TONE_BORDER[cat],
-                                      )
-                                    : "bg-ivory text-earth-deep border-gold/30 hover:bg-ivory-deep",
+                                  "h-1.5 w-1.5 rounded-full",
+                                  TONE_DOT[chip.category],
                                 )}
-                              >
-                                <span
-                                  className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    TONE_DOT[cat],
-                                  )}
-                                />
-                                {m.label}
-                              </ButtonBare>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Group (select) */}
-                      <div className="space-y-1.5">
-                        <label className="label-tiny block">Group</label>
-                        <GroupSelect
-                          value={editingGroupId}
-                          onChange={setEditingGroupId}
-                          groups={groups}
-                        />
-                      </div>
-
-                      {/* Inline error (e.g. duplicate name in group) */}
-                      {editError && (
-                        <p className="text-[11px] text-saffron font-lyric-italic">
-                          {editError}
-                        </p>
-                      )}
-
-                      {/* Footer actions */}
-                      <div className="flex items-center justify-between pt-1">
-                        <ButtonBare
-                          type="button"
-                          onClick={() => {
-                            if (confirm(`Remove "${chip.name}"?`)) {
-                              void remove.mutateAsync(chip.id)
-                              cancelEdit()
-                            }
-                          }}
-                          className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-saffron transition-colors"
-                        >
-                          Remove
-                        </ButtonBare>
-                        <div className="flex items-center gap-2">
-                          <ButtonBare
-                            type="button"
-                            onClick={cancelEdit}
-                            className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep px-3 py-1.5"
-                          >
-                            Cancel
-                          </ButtonBare>
-                          <ButtonBare
-                            type="button"
-                            onClick={() => commitEdit(chip)}
-                            disabled={!editingName.trim()}
-                            className="text-[10px] font-pressure-caps tracking-wider bg-ink text-ivory rounded-md px-3 py-1.5 disabled:opacity-50"
-                          >
-                            Save
-                          </ButtonBare>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-stretch">
-                      <ButtonBare
-                        type="button"
-                        onClick={() => startEdit(chip)}
-                        className="flex-1 text-left px-3 py-2.5"
-                        aria-label={`Edit ${chip.name}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <p
-                              className={cn(
-                                "font-lyric text-[14px] truncate",
-                                chip.isActive
-                                  ? "text-ink"
-                                  : "text-earth-mid line-through",
-                              )}
-                            >
-                              {chip.name}
-                            </p>
-                            <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                              <span className="inline-flex items-center gap-1.5 font-pressure-caps tracking-wider text-earth-mid">
-                                <span
-                                  className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    TONE_DOT[chip.category],
-                                  )}
-                                />
-                                <span className={TONE_TEXT[chip.category]}>
-                                  {meta.label}
-                                </span>
+                              />
+                              <span className={TONE_TEXT[chip.category]}>
+                                {meta.label}
                               </span>
-                              {groupName && (
-                                <>
-                                  <span className="text-earth-mid/50">·</span>
-                                  <span
-                                    className={cn(
-                                      "inline-flex items-center gap-1 font-pressure-caps tracking-wider",
-                                      groupPaused
-                                        ? "text-earth-mid/60 line-through"
-                                        : "text-earth-deep",
-                                    )}
-                                  >
-                                    in {groupName}
-                                  </span>
-                                </>
-                              )}
-                            </div>
+                            </span>
+                            {groupName && (
+                              <>
+                                <span className="text-earth-mid/50">·</span>
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 font-pressure-caps tracking-wider",
+                                    groupPaused
+                                      ? "text-earth-mid/60 line-through"
+                                      : "text-earth-deep",
+                                  )}
+                                >
+                                  in {groupName}
+                                </span>
+                              </>
+                            )}
                           </div>
-                          <span className="text-[10px] font-pressure-caps tracking-wider text-earth-mid/0 group-hover:text-earth-mid transition-colors self-center">
-                            edit →
-                          </span>
                         </div>
-                      </ButtonBare>
+                        <span className="text-[10px] font-pressure-caps tracking-wider text-earth-mid/0 group-hover:text-earth-mid transition-colors self-center shrink-0">
+                          edit →
+                        </span>
+                      </div>
+                    </ButtonBare>
 
-                      {/* Per-act active toggle */}
-                      <ButtonBare
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleChipActive(chip)
-                        }}
-                        title={
-                          chip.isActive ? "Pause this act" : "Activate this act"
-                        }
-                        aria-pressed={chip.isActive}
+                    {/* Per-act active toggle */}
+                    <ButtonBare
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleChipActive(chip)
+                      }}
+                      title={
+                        chip.isActive ? "Pause this act" : "Activate this act"
+                      }
+                      aria-pressed={chip.isActive}
+                      className={cn(
+                        "relative h-4 w-7 rounded-full transition-colors shrink-0 self-center mr-3",
+                        chip.isActive ? "bg-saffron" : "bg-earth-mid/30",
+                      )}
+                    >
+                      <span
                         className={cn(
-                          "relative h-4 w-7 rounded-full transition-colors shrink-0 self-center mr-3",
-                          chip.isActive ? "bg-saffron" : "bg-earth-mid/30",
+                          "absolute top-0.5 h-3 w-3 rounded-full bg-ivory shadow transition-all",
+                          chip.isActive ? "left-3.5" : "left-0.5",
                         )}
-                      >
-                        <span
-                          className={cn(
-                            "absolute top-0.5 h-3 w-3 rounded-full bg-ivory shadow transition-all",
-                            chip.isActive ? "left-3.5" : "left-0.5",
-                          )}
-                        />
-                      </ButtonBare>
-                    </div>
-                  )}
+                      />
+                    </ButtonBare>
+                  </div>
                 </li>
               )
             })}
@@ -884,28 +771,13 @@ export default function ReflectionChipsSettingsPage() {
               </ul>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-1">
-              <input
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value.slice(0, 60))}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}
-                placeholder="add a new group — e.g. Project Atlas"
-                className="flex-1 bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
-              />
-              <ButtonBare
-                type="button"
-                onClick={handleCreateGroup}
-                disabled={!newGroupName.trim()}
-                className="bg-ink text-ivory rounded-md px-4 py-2 text-[11px] font-pressure-caps tracking-wider disabled:opacity-40"
-              >
-                Add group
-              </ButtonBare>
-            </div>
-            {groupError && (
-              <p className="text-[11px] text-saffron font-lyric-italic">
-                {groupError}
-              </p>
-            )}
+            <Button
+              type="button"
+              onClick={openAddGroupModal}
+              className="w-full"
+            >
+              + Add a group
+            </Button>
           </CardContent>
         </Card>
       </section>
@@ -918,6 +790,326 @@ export default function ReflectionChipsSettingsPage() {
       >
         ← back to settings
       </Link>
+
+      {addChipModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add an act"
+            onClick={closeAddChipModal}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200"
+            >
+              <div className="space-y-1">
+                <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
+                  Add an act
+                </h3>
+                <p className="font-lyric-italic text-[11px] text-earth-mid">
+                  A small named thing you do — or don&apos;t do — on a day.
+                </p>
+              </div>
+
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="label-tiny block">Name</label>
+                <input
+                  autoFocus
+                  value={draftName}
+                  onChange={(e) => {
+                    setDraftName(e.target.value.slice(0, 60))
+                    setCreateError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleCreate()
+                    if (e.key === "Escape") closeAddChipModal()
+                  }}
+                  placeholder="e.g. deep work, scrolled, walked outside"
+                  className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
+                />
+              </div>
+
+              {/* Category */}
+              <div className="space-y-1.5">
+                <label className="label-tiny block">Where it belongs</label>
+                <div className="flex gap-1.5">
+                  {CHIP_CATEGORY_ORDER.map((cat) => {
+                    const m = CHIP_CATEGORY_META[cat]
+                    const isActive = draftCategory === cat
+                    return (
+                      <ButtonBare
+                        key={cat}
+                        type="button"
+                        onClick={() => setDraftCategory(cat)}
+                        className={cn(
+                          "flex-1 rounded-full px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider transition-all flex items-center justify-center gap-1.5 border",
+                          isActive
+                            ? cn("bg-ink text-ivory shadow-sm", TONE_BORDER[cat])
+                            : "bg-ivory text-earth-deep border-gold/30 hover:bg-ivory-deep",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            TONE_DOT[cat],
+                          )}
+                        />
+                        {m.label}
+                      </ButtonBare>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Group */}
+              <div className="space-y-1.5">
+                <label className="label-tiny block">Group</label>
+                <GroupSelect
+                  value={draftGroupId}
+                  onChange={setDraftGroupId}
+                  groups={groups}
+                />
+                {draftGroupId &&
+                  groupById[draftGroupId] &&
+                  !groupById[draftGroupId].isActive && (
+                    <p className="font-lyric-italic text-[10px] text-earth-mid">
+                      This group is paused — the new act will start paused too.
+                    </p>
+                  )}
+              </div>
+
+              {createError && (
+                <p className="text-[11px] text-saffron font-lyric-italic">
+                  {createError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <ButtonBare
+                  type="button"
+                  onClick={closeAddChipModal}
+                  disabled={create.isPending}
+                  className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep px-3 py-1.5"
+                >
+                  Cancel
+                </ButtonBare>
+                <ButtonBare
+                  type="button"
+                  onClick={() => void handleCreate()}
+                  disabled={!draftName.trim() || create.isPending}
+                  className="text-[10px] font-pressure-caps tracking-wider bg-saffron text-ivory rounded-md px-3 py-1.5 disabled:opacity-50"
+                >
+                  {create.isPending ? "Adding…" : "Add act"}
+                </ButtonBare>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {addGroupModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add a group"
+            onClick={closeAddGroupModal}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200"
+            >
+              <div className="space-y-1">
+                <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
+                  Add a group
+                </h3>
+                <p className="font-lyric-italic text-[11px] text-earth-mid">
+                  An optional roof for related acts — a project, a season, a
+                  theme.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="label-tiny block">Group name</label>
+                <input
+                  autoFocus
+                  value={newGroupName}
+                  onChange={(e) => {
+                    setNewGroupName(e.target.value.slice(0, 60))
+                    setGroupError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleCreateGroup()
+                    if (e.key === "Escape") closeAddGroupModal()
+                  }}
+                  placeholder="e.g. Project Atlas"
+                  className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
+                />
+              </div>
+
+              {groupError && (
+                <p className="text-[11px] text-saffron font-lyric-italic">
+                  {groupError}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <ButtonBare
+                  type="button"
+                  onClick={closeAddGroupModal}
+                  disabled={createGroup.isPending}
+                  className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep px-3 py-1.5"
+                >
+                  Cancel
+                </ButtonBare>
+                <ButtonBare
+                  type="button"
+                  onClick={() => void handleCreateGroup()}
+                  disabled={!newGroupName.trim() || createGroup.isPending}
+                  className="text-[10px] font-pressure-caps tracking-wider bg-saffron text-ivory rounded-md px-3 py-1.5 disabled:opacity-50"
+                >
+                  {createGroup.isPending ? "Adding…" : "Add group"}
+                </ButtonBare>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {editingChip &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Edit ${editingChip.name}`}
+            onClick={cancelEdit}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200"
+            >
+              <div className="space-y-1">
+                <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
+                  Edit act
+                </h3>
+                <p className="font-lyric-italic text-[11px] text-earth-mid">
+                  Rename, re-bucket, or move it to another group.
+                </p>
+              </div>
+
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="label-tiny block">Name</label>
+                <input
+                  autoFocus
+                  value={editingName}
+                  onChange={(e) => {
+                    setEditingName(e.target.value.slice(0, 60))
+                    setEditError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitEdit(editingChip)
+                    if (e.key === "Escape") cancelEdit()
+                  }}
+                  placeholder="rename this act…"
+                  className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
+                />
+              </div>
+
+              {/* Category */}
+              <div className="space-y-1.5">
+                <label className="label-tiny block">Where it belongs</label>
+                <div className="flex gap-1.5">
+                  {CHIP_CATEGORY_ORDER.map((cat) => {
+                    const m = CHIP_CATEGORY_META[cat]
+                    const isActive = editingCategory === cat
+                    return (
+                      <ButtonBare
+                        key={cat}
+                        type="button"
+                        onClick={() => setEditingCategory(cat)}
+                        className={cn(
+                          "flex-1 rounded-full px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider transition-all flex items-center justify-center gap-1.5 border",
+                          isActive
+                            ? cn(
+                                "bg-ink text-ivory shadow-sm",
+                                TONE_BORDER[cat],
+                              )
+                            : "bg-ivory text-earth-deep border-gold/30 hover:bg-ivory-deep",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            TONE_DOT[cat],
+                          )}
+                        />
+                        {m.label}
+                      </ButtonBare>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Group */}
+              <div className="space-y-1.5">
+                <label className="label-tiny block">Group</label>
+                <GroupSelect
+                  value={editingGroupId}
+                  onChange={setEditingGroupId}
+                  groups={groups}
+                />
+              </div>
+
+              {editError && (
+                <p className="text-[11px] text-saffron font-lyric-italic">
+                  {editError}
+                </p>
+              )}
+
+              <div className="flex items-center justify-between pt-1">
+                <ButtonBare
+                  type="button"
+                  onClick={() => {
+                    if (confirm(`Remove "${editingChip.name}"?`)) {
+                      void remove.mutateAsync(editingChip.id)
+                      cancelEdit()
+                    }
+                  }}
+                  className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-saffron transition-colors"
+                >
+                  Remove
+                </ButtonBare>
+                <div className="flex items-center gap-2">
+                  <ButtonBare
+                    type="button"
+                    onClick={cancelEdit}
+                    className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep px-3 py-1.5"
+                  >
+                    Cancel
+                  </ButtonBare>
+                  <ButtonBare
+                    type="button"
+                    onClick={() => commitEdit(editingChip)}
+                    disabled={!editingName.trim()}
+                    className="text-[10px] font-pressure-caps tracking-wider bg-ink text-ivory rounded-md px-3 py-1.5 disabled:opacity-50"
+                  >
+                    Save
+                  </ButtonBare>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

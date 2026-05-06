@@ -17,6 +17,7 @@ export const queryKeys = {
 
   reflectionChips: () => ["reflection-chips"] as const,
   actGroups: () => ["act-groups"] as const,
+  affirmations: () => ["affirmations"] as const,
 
   growthCurrent: () => ["growth", "current"] as const,
   growthHistory: (from: string, to: string) =>
