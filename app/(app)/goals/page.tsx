@@ -352,7 +352,6 @@ export function GoalFormModal({
       role="dialog"
       aria-modal="true"
       aria-label={parentId ? "Add a sub-task" : "Add a goal"}
-      onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}

@@ -3,13 +3,20 @@ import { requireUser } from "@/lib/auth/require-user";
 import { db } from "@/lib/db";
 import { affirmations } from "@/lib/db/schema";
 import { eq, asc, max } from "drizzle-orm";
-import type { Affirmation } from "@/types";
+import type { Affirmation, AffirmationLanguage } from "@/types";
+
+const VALID_LANGUAGES: AffirmationLanguage[] = [
+  "en-US",
+  "hi-IN",
+  "hi-Latn-IN",
+];
 
 function dbToType(row: typeof affirmations.$inferSelect): Affirmation {
   return {
     id: row.id,
     userId: row.userId,
     text: row.text,
+    language: (row.language as AffirmationLanguage) ?? "en-US",
     sortOrder: row.sortOrder,
     isActive: row.isActive,
     createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
@@ -39,12 +46,21 @@ export async function POST(request: Request) {
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const body = (await request.json()) as { text: string; isActive?: boolean };
+  const body = (await request.json()) as {
+    text: string;
+    language?: AffirmationLanguage;
+    isActive?: boolean;
+  };
 
   const text = body.text?.trim().slice(0, 280);
   if (!text) {
     return NextResponse.json({ error: "Text is required" }, { status: 400 });
   }
+
+  const language: AffirmationLanguage =
+    body.language && VALID_LANGUAGES.includes(body.language)
+      ? body.language
+      : "en-US";
 
   const proposed = normalize(text);
   const peers = await db
@@ -70,6 +86,7 @@ export async function POST(request: Request) {
     .values({
       userId: auth.userId,
       text,
+      language,
       sortOrder: (maxOrder?.m ?? 0) + 1,
       isActive: body.isActive ?? true,
     })

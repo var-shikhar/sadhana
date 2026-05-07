@@ -255,7 +255,6 @@ export default function ProfileSettingsPage() {
             role="dialog"
             aria-modal="true"
             aria-label={meta.title}
-            onClick={closeEdit}
           >
             <div
               onClick={(e) => e.stopPropagation()}

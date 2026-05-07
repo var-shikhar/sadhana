@@ -77,10 +77,7 @@ export default function CategoriesPage() {
       {createOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <ModalShell
-            label="Add a category"
-            onClose={() => setCreateOpen(false)}
-          >
+          <ModalShell label="Add a category">
             <div className="space-y-1">
               <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
                 New category
@@ -111,10 +108,7 @@ export default function CategoriesPage() {
       {editing &&
         typeof document !== "undefined" &&
         createPortal(
-          <ModalShell
-            label={`Edit ${editing.title}`}
-            onClose={() => setEditingId(null)}
-          >
+          <ModalShell label={`Edit ${editing.title}`}>
             <div className="space-y-1">
               <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
                 Edit category
@@ -156,11 +150,9 @@ export default function CategoriesPage() {
 
 function ModalShell({
   label,
-  onClose,
   children,
 }: {
   label: string
-  onClose: () => void
   children: React.ReactNode
 }) {
   return (
@@ -169,12 +161,8 @@ function ModalShell({
       role="dialog"
       aria-modal="true"
       aria-label={label}
-      onClick={onClose}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200 max-h-[88vh] overflow-y-auto"
-      >
+      <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200 max-h-[88vh] overflow-y-auto">
         {children}
       </div>
     </div>

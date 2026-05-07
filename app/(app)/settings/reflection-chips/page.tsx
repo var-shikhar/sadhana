@@ -444,11 +444,7 @@ export default function ReflectionChipsSettingsPage() {
       <GoldRule width="section" />
 
       {/* ── Add an act (opens modal) ── */}
-      <Button
-        type="button"
-        onClick={openAddChipModal}
-        className="w-full"
-      >
+      <Button type="button" onClick={openAddChipModal} className="w-full">
         + Add an act
       </Button>
 
@@ -460,7 +456,7 @@ export default function ReflectionChipsSettingsPage() {
         <div className="flex items-center justify-between gap-3">
           <LabelTiny className="shrink-0">Your acts</LabelTiny>
 
-          <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+          <div className="flex gap-1.5 min-w-0 flex-1 justify-end flex-wrap items-center">
             {/* Category pill group — compact */}
             <div className="flex flex-wrap rounded-full border border-gold/40 bg-ivory p-0.5 shadow-[0_1px_2px_rgba(196,106,31,0.05)] shrink-0">
               {CATEGORY_FILTER_ORDER.map((f) => {
@@ -799,7 +795,6 @@ export default function ReflectionChipsSettingsPage() {
             role="dialog"
             aria-modal="true"
             aria-label="Add an act"
-            onClick={closeAddChipModal}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -848,7 +843,10 @@ export default function ReflectionChipsSettingsPage() {
                         className={cn(
                           "flex-1 rounded-full px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider transition-all flex items-center justify-center gap-1.5 border",
                           isActive
-                            ? cn("bg-ink text-ivory shadow-sm", TONE_BORDER[cat])
+                            ? cn(
+                                "bg-ink text-ivory shadow-sm",
+                                TONE_BORDER[cat],
+                              )
                             : "bg-ivory text-earth-deep border-gold/30 hover:bg-ivory-deep",
                         )}
                       >
@@ -919,7 +917,6 @@ export default function ReflectionChipsSettingsPage() {
             role="dialog"
             aria-modal="true"
             aria-label="Add a group"
-            onClick={closeAddGroupModal}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -990,7 +987,6 @@ export default function ReflectionChipsSettingsPage() {
             role="dialog"
             aria-modal="true"
             aria-label={`Edit ${editingChip.name}`}
-            onClick={cancelEdit}
           >
             <div
               onClick={(e) => e.stopPropagation()}

@@ -3,13 +3,20 @@ import { requireUser } from "@/lib/auth/require-user";
 import { db } from "@/lib/db";
 import { affirmations } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
-import type { Affirmation } from "@/types";
+import type { Affirmation, AffirmationLanguage } from "@/types";
+
+const VALID_LANGUAGES: AffirmationLanguage[] = [
+  "en-US",
+  "hi-IN",
+  "hi-Latn-IN",
+];
 
 function dbToType(row: typeof affirmations.$inferSelect): Affirmation {
   return {
     id: row.id,
     userId: row.userId,
     text: row.text,
+    language: (row.language as AffirmationLanguage) ?? "en-US",
     sortOrder: row.sortOrder,
     isActive: row.isActive,
     createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
@@ -31,6 +38,7 @@ export async function PATCH(
 
   const body = (await request.json()) as Partial<{
     text: string;
+    language: AffirmationLanguage;
     sortOrder: number;
     isActive: boolean;
   }>;
@@ -42,6 +50,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Text cannot be empty" }, { status: 400 });
     }
     updates.text = trimmed;
+  }
+  if (typeof body.language === "string") {
+    if (!VALID_LANGUAGES.includes(body.language)) {
+      return NextResponse.json({ error: "Invalid language" }, { status: 400 });
+    }
+    updates.language = body.language;
   }
   if (typeof body.sortOrder === "number") updates.sortOrder = body.sortOrder;
   if (typeof body.isActive === "boolean") updates.isActive = body.isActive;

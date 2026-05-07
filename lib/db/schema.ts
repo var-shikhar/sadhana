@@ -81,6 +81,10 @@ export const goalHorizonEnum = pgEnum("goal_horizon", [
   "medium_term",
   "long_term",
 ]);
+export const taskStatusEnum = pgEnum("task_status", [
+  "open",
+  "done",
+]);
 
 // ── Scripture / RAG ──
 export const scriptureBookEnum = pgEnum("scripture_book", [
@@ -358,6 +362,9 @@ export const affirmations = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: text("user_id").notNull(),
     text: text("text").notNull(),
+    /** BCP-47 language tag — drives STT recognition + normalization branch.
+     *  Today: "en-US", "hi-IN" (devanagari), "hi-Latn-IN" (hindi in latin). */
+    language: text("language").notNull().default("en-US"),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -580,6 +587,39 @@ export const goalHistory = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [index("goal_history_goal_idx").on(table.goalId, table.createdAt)]
+);
+
+/**
+ * Discrete one-and-done action items under a goal or sub-goal. Lighter
+ * than sub-goals (no logs, no history, no cadence). Classified by two
+ * booleans (`important`, `urgent`) which together place a task in one of
+ * four Eisenhower-matrix quadrants. Cascade delete from parent goal/sub.
+ */
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    goalId: uuid("goal_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    important: boolean("important").notNull().default(false),
+    urgent: boolean("urgent").notNull().default(false),
+    status: taskStatusEnum("status").notNull().default("open"),
+    completionNote: text("completion_note"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("tasks_goal_status_idx").on(table.goalId, table.status),
+    index("tasks_user_quadrant_idx").on(
+      table.userId,
+      table.important,
+      table.urgent,
+    ),
+  ]
 );
 
 export const categories = pgTable("categories", {

@@ -36,6 +36,7 @@ export const queryKeys = {
   goal: (id: string) => ["goals", "id", id] as const,
   subGoals: (parentId: string) => ["goals", "sub", parentId] as const,
   goalHistory: (goalId: string) => ["goals", "history", goalId] as const,
+  tasksByGoal: (goalId: string) => ["tasks", "goal", goalId] as const,
   goalSuggestions: (categoryTitle: string) =>
     ["goalSuggestions", categoryTitle.toLowerCase()] as const,
 

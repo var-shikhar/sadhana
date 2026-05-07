@@ -185,15 +185,93 @@ export interface ActGroup {
   updatedAt: string;
 }
 
+// ── Tasks (Eisenhower) ──
+export type TaskStatus = "open" | "done";
+
+/**
+ * A discrete action item under a goal or sub-goal. `important` × `urgent`
+ * place it in one of four Eisenhower quadrants (derived, not stored).
+ */
+export interface Task {
+  id: string;
+  userId: string;
+  /** Either a top-level goal or a sub-goal — both live in `goals`. */
+  goalId: string;
+  title: string;
+  description: string | null;
+  important: boolean;
+  urgent: boolean;
+  status: TaskStatus;
+  completionNote: string | null;
+  completedAt: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Eisenhower quadrant key derived from a task's flags. */
+export type TaskQuadrant = "do_now" | "schedule" | "when_you_can" | "maybe_later";
+
+export function quadrantOf(t: Pick<Task, "important" | "urgent">): TaskQuadrant {
+  if (t.important && t.urgent) return "do_now";
+  if (t.important && !t.urgent) return "schedule";
+  if (!t.important && t.urgent) return "when_you_can";
+  return "maybe_later";
+}
+
+export const TASK_QUADRANTS: TaskQuadrant[] = [
+  "do_now",
+  "schedule",
+  "when_you_can",
+  "maybe_later",
+];
+
+export const TASK_QUADRANT_META: Record<
+  TaskQuadrant,
+  { label: string; caption: string }
+> = {
+  do_now: { label: "Do now", caption: "Important and time-sensitive" },
+  schedule: { label: "Schedule", caption: "Important — pick a time" },
+  when_you_can: {
+    label: "When you can",
+    caption: "Time-sensitive but small",
+  },
+  maybe_later: { label: "Maybe later", caption: "Drop or revisit" },
+};
+
 // ── Affirmations ──
 /**
  * A single affirmation in the user's library. Flat list — no groups or
  * categories. isActive is the pause flag.
  */
+
+/** BCP-47 language tags supported for affirmation practice. */
+export type AffirmationLanguage = "en-US" | "hi-IN" | "hi-Latn-IN";
+
+export const AFFIRMATION_LANGUAGES: Array<{
+  code: AffirmationLanguage;
+  label: string;
+  hint: string;
+}> = [
+  { code: "en-US", label: "English", hint: "I am calm and clear." },
+  {
+    code: "hi-IN",
+    label: "Hindi (Devanagari)",
+    hint: "मैं शांत और स्पष्ट हूँ।",
+  },
+  {
+    code: "hi-Latn-IN",
+    label: "Hindi (Latin)",
+    hint: "main shaant aur spasht hoon.",
+  },
+];
+
 export interface Affirmation {
   id: string;
   userId: string;
   text: string;
+  /** BCP-47 language tag — drives STT recognition + normalization. */
+  language: AffirmationLanguage;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;

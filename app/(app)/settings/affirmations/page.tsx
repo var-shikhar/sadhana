@@ -14,7 +14,12 @@ import {
   useUpdateAffirmation,
   useDeleteAffirmation,
 } from "@/hooks/useAffirmations"
-import type { Affirmation } from "@/types"
+import { normalizeAffirmation } from "@/lib/affirmations/normalize"
+import {
+  AFFIRMATION_LANGUAGES,
+  type Affirmation,
+  type AffirmationLanguage,
+} from "@/types"
 
 export default function AffirmationsSettingsPage() {
   const { affirmations, loading } = useAffirmations()
@@ -25,11 +30,15 @@ export default function AffirmationsSettingsPage() {
   // ── Add modal state ──
   const [addOpen, setAddOpen] = useState(false)
   const [draftText, setDraftText] = useState("")
+  const [draftLanguage, setDraftLanguage] =
+    useState<AffirmationLanguage>("en-US")
   const [createError, setCreateError] = useState<string | null>(null)
 
   // ── Edit modal state ──
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingText, setEditingText] = useState("")
+  const [editingLanguage, setEditingLanguage] =
+    useState<AffirmationLanguage>("en-US")
   const [editError, setEditError] = useState<string | null>(null)
 
   const editingAffirmation = useMemo(
@@ -63,6 +72,7 @@ export default function AffirmationsSettingsPage() {
 
   function openAdd() {
     setDraftText("")
+    setDraftLanguage("en-US")
     setCreateError(null)
     setAddOpen(true)
   }
@@ -70,6 +80,7 @@ export default function AffirmationsSettingsPage() {
   function closeAdd() {
     setAddOpen(false)
     setDraftText("")
+    setDraftLanguage("en-US")
     setCreateError(null)
   }
 
@@ -79,7 +90,7 @@ export default function AffirmationsSettingsPage() {
     setCreateError(null)
 
     try {
-      await create.mutateAsync({ text })
+      await create.mutateAsync({ text, language: draftLanguage })
       closeAdd()
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Could not save")
@@ -89,6 +100,7 @@ export default function AffirmationsSettingsPage() {
   function startEdit(a: Affirmation) {
     setEditingId(a.id)
     setEditingText(a.text)
+    setEditingLanguage(a.language ?? "en-US")
     setEditError(null)
   }
 
@@ -103,12 +115,18 @@ export default function AffirmationsSettingsPage() {
       cancelEdit()
       return
     }
-    if (text === a.text) {
+    const textChanged = text !== a.text
+    const languageChanged = editingLanguage !== (a.language ?? "en-US")
+    if (!textChanged && !languageChanged) {
       cancelEdit()
       return
     }
     try {
-      await update.mutateAsync({ id: a.id, text })
+      await update.mutateAsync({
+        id: a.id,
+        ...(textChanged ? { text } : {}),
+        ...(languageChanged ? { language: editingLanguage } : {}),
+      })
       cancelEdit()
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Could not save")
@@ -139,6 +157,17 @@ export default function AffirmationsSettingsPage() {
       </header>
 
       <GoldRule width="section" />
+
+      {/* Entry point to the recital flow — only useful when there's at least
+          one active affirmation to practice with. */}
+      {affirmations.some((a) => a.isActive) && (
+        <Link
+          href="/settings/affirmations/practice"
+          className="block w-full text-center bg-saffron text-ivory rounded-md px-4 py-2.5 text-[11px] font-pressure-caps tracking-[3px] shadow-[0_2px_8px_rgba(196,106,31,0.25)] hover:bg-saffron/90 transition-colors"
+        >
+          Begin practice →
+        </Link>
+      )}
 
       <Button type="button" onClick={openAdd} className="w-full">
         + Add an affirmation
@@ -242,7 +271,6 @@ export default function AffirmationsSettingsPage() {
             role="dialog"
             aria-modal="true"
             aria-label="Add an affirmation"
-            onClick={closeAdd}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -256,6 +284,11 @@ export default function AffirmationsSettingsPage() {
                   A short statement you want to return to.
                 </p>
               </div>
+
+              <LanguagePicker
+                value={draftLanguage}
+                onChange={setDraftLanguage}
+              />
 
               <div className="space-y-1.5">
                 <label className="label-tiny block">Text</label>
@@ -274,12 +307,23 @@ export default function AffirmationsSettingsPage() {
                     if (e.key === "Escape") closeAdd()
                   }}
                   rows={3}
-                  placeholder="e.g. I do hard things gently."
+                  placeholder={
+                    AFFIRMATION_LANGUAGES.find(
+                      (l) => l.code === draftLanguage,
+                    )?.hint ?? "e.g. I do hard things gently."
+                  }
+                  dir={draftLanguage === "hi-IN" ? "auto" : undefined}
                   className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[14px] font-lyric-italic outline-none focus:border-ink/40 resize-none"
                 />
-                <p className="text-right text-[10px] text-earth-mid">
-                  {draftText.length}/280
-                </p>
+                <div className="flex items-baseline justify-between gap-2">
+                  <SpeechMatchPreview
+                    text={draftText}
+                    language={draftLanguage}
+                  />
+                  <p className="text-[10px] text-earth-mid shrink-0">
+                    {draftText.length}/280
+                  </p>
+                </div>
               </div>
 
               {createError && (
@@ -319,7 +363,6 @@ export default function AffirmationsSettingsPage() {
             role="dialog"
             aria-modal="true"
             aria-label="Edit affirmation"
-            onClick={cancelEdit}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -333,6 +376,11 @@ export default function AffirmationsSettingsPage() {
                   Refine the words. Pause it from the row toggle.
                 </p>
               </div>
+
+              <LanguagePicker
+                value={editingLanguage}
+                onChange={setEditingLanguage}
+              />
 
               <div className="space-y-1.5">
                 <label className="label-tiny block">Text</label>
@@ -351,11 +399,18 @@ export default function AffirmationsSettingsPage() {
                     if (e.key === "Escape") cancelEdit()
                   }}
                   rows={3}
+                  dir={editingLanguage === "hi-IN" ? "auto" : undefined}
                   className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[14px] font-lyric-italic outline-none focus:border-ink/40 resize-none"
                 />
-                <p className="text-right text-[10px] text-earth-mid">
-                  {editingText.length}/280
-                </p>
+                <div className="flex items-baseline justify-between gap-2">
+                  <SpeechMatchPreview
+                    text={editingText}
+                    language={editingLanguage}
+                  />
+                  <p className="text-[10px] text-earth-mid shrink-0">
+                    {editingText.length}/280
+                  </p>
+                </div>
               </div>
 
               {editError && (
@@ -401,6 +456,95 @@ export default function AffirmationsSettingsPage() {
           </div>,
           document.body,
         )}
+    </div>
+  )
+}
+
+/**
+ * Live preview of how an affirmation will be matched during practice. We
+ * run the same `normalizeAffirmation()` that the practice page applies to
+ * the spoken transcript, so the user can see the canonical form before
+ * saving and adjust typos / unusual punctuation that won't match speech.
+ */
+function SpeechMatchPreview({
+  text,
+  language,
+}: {
+  text: string
+  language: AffirmationLanguage
+}) {
+  const normalized = normalizeAffirmation(text, language)
+  if (!text.trim()) {
+    return (
+      <p className="text-[10px] text-earth-mid italic font-lyric-italic min-w-0 truncate">
+        speech match preview will appear here
+      </p>
+    )
+  }
+  // Heuristic only meaningful for Latin-script affirmations: a stray
+  // single-letter token (e.g. "I m calm" → "i m calm") is almost always a
+  // typo. Devanagari has its own quirks; skip the heuristic there.
+  const hasStrayLetter =
+    language !== "hi-IN" && /(^|\s)[a-z](\s|$)/.test(normalized)
+  return (
+    <div className="min-w-0 flex-1">
+      <p
+        className={cn(
+          "text-[10px] font-pressure-caps tracking-wider truncate",
+          hasStrayLetter ? "text-saffron" : "text-earth-mid",
+        )}
+        title={normalized}
+      >
+        <span className="text-earth-mid/70">speech match: </span>
+        <span className="font-sans tracking-normal normal-case">
+          {normalized || "—"}
+        </span>
+      </p>
+      {hasStrayLetter && (
+        <p className="text-[10px] text-saffron font-lyric-italic mt-0.5">
+          stray letter detected — STT can&apos;t produce that. Did you mean a
+          contraction or full word?
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Language picker for an affirmation. Drives both STT recognition (the
+ * BCP-47 tag goes straight to the speech engine) and the normalization
+ * branch used to compare what was spoken against what was written.
+ */
+function LanguagePicker({
+  value,
+  onChange,
+}: {
+  value: AffirmationLanguage
+  onChange: (next: AffirmationLanguage) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="label-tiny block">Language</label>
+      <div className="flex flex-wrap gap-1.5">
+        {AFFIRMATION_LANGUAGES.map((l) => {
+          const isActive = value === l.code
+          return (
+            <ButtonBare
+              key={l.code}
+              type="button"
+              onClick={() => onChange(l.code)}
+              className={cn(
+                "rounded-full px-3 py-1 text-[10px] font-pressure-caps tracking-wider transition-all border",
+                isActive
+                  ? "bg-ink text-ivory border-ink shadow-sm"
+                  : "bg-ivory text-earth-deep border-gold/40 hover:bg-ivory-deep",
+              )}
+            >
+              {l.label}
+            </ButtonBare>
+          )
+        })}
+      </div>
     </div>
   )
 }

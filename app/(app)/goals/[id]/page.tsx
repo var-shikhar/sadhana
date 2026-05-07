@@ -18,6 +18,7 @@ import {
   useUpdateGoalV2,
 } from "@/hooks/useGoals"
 import { useCategories } from "@/hooks/useCategories"
+import { TaskMatrix } from "@/components/tasks/TaskMatrix"
 import { queryKeys } from "@/lib/query-keys"
 import {
   GOAL_SHAPES,
@@ -57,6 +58,8 @@ export default function GoalDetailPage({
     null,
   )
   const [statusReason, setStatusReason] = useState("")
+  const [logsOpen, setLogsOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const categoryTitle = useMemo(() => {
     const catId = goal?.categoryId
@@ -171,6 +174,88 @@ export default function GoalDetailPage({
             <Badge tone="muted">by {goal.deadlineDate}</Badge>
           )}
         </div>
+
+        {/* Inline meta toggles — expand logs / history right here. */}
+        {(logs.length > 0 || history.length > 0) && (
+          <div className="flex items-center gap-3 flex-wrap pt-1">
+            {logs.length > 0 && (
+              <ButtonBare
+                type="button"
+                onClick={() => setLogsOpen((o) => !o)}
+                className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep transition-colors"
+                aria-expanded={logsOpen}
+              >
+                {logsOpen ? "Hide logs" : `View logs (${logs.length})`}
+              </ButtonBare>
+            )}
+            {history.length > 0 && (
+              <ButtonBare
+                type="button"
+                onClick={() => setHistoryOpen((o) => !o)}
+                className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep transition-colors"
+                aria-expanded={historyOpen}
+              >
+                {historyOpen ? "Hide history" : `View history (${history.length})`}
+              </ButtonBare>
+            )}
+          </div>
+        )}
+
+        {logsOpen && logs.length > 0 && (
+          <ul className="space-y-1.5 mt-1">
+            {logs.slice(0, 30).map((l) => (
+              <li
+                key={l.id}
+                className="rounded border border-gold/20 bg-ivory-deep px-3 py-2"
+              >
+                <div className="flex items-baseline gap-2">
+                  <span className="font-pressure-caps text-[10px] text-earth-mid tracking-wider">
+                    {l.date}
+                  </span>
+                  <span className="font-lyric text-[13px] text-ink">
+                    +{l.value}
+                  </span>
+                </div>
+                {l.note && (
+                  <p className="font-lyric-italic text-[12px] text-earth-deep mt-1">
+                    {l.note}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {historyOpen && history.length > 0 && (
+          <ul className="space-y-1.5 mt-1">
+            {history.map((h) => (
+              <li
+                key={h.id}
+                className="rounded border border-gold/20 bg-ivory-deep px-3 py-2"
+              >
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="font-pressure-caps text-[10px] text-saffron tracking-wider">
+                    {h.changeType}
+                  </span>
+                  <span className="font-pressure-caps text-[9px] text-earth-mid">
+                    {new Date(h.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                {(h.fromValue || h.toValue) && (
+                  <p className="font-sans text-[12px] text-earth-deep mt-0.5">
+                    {h.fromValue ? `${h.fromValue} → ` : ""}
+                    {h.toValue ?? "—"}
+                  </p>
+                )}
+                {h.reason && (
+                  <p className="font-lyric-italic text-[12px] text-earth-deep mt-1">
+                    {h.reason}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </header>
 
       <GoldRule width="section" />
@@ -276,79 +361,8 @@ export default function GoalDetailPage({
         </>
       )}
 
-      {/* ── Logs ────────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <LabelTiny>Logs</LabelTiny>
-        {logs.length === 0 ? (
-          <p className="font-lyric-italic text-[12px] text-earth-mid">
-            No logs yet — tap the log button above.
-          </p>
-        ) : (
-          <ul className="space-y-1.5">
-            {logs.slice(0, 30).map((l) => (
-              <li
-                key={l.id}
-                className="rounded border border-gold/20 bg-ivory-deep px-3 py-2"
-              >
-                <div className="flex items-baseline gap-2">
-                  <span className="font-pressure-caps text-[10px] text-earth-mid tracking-wider">
-                    {l.date}
-                  </span>
-                  <span className="font-lyric text-[13px] text-ink">
-                    +{l.value}
-                  </span>
-                </div>
-                {l.note && (
-                  <p className="font-lyric-italic text-[12px] text-earth-deep mt-1">
-                    {l.note}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <GoldRule width="section" />
-
-      {/* ── History ─────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <LabelTiny>History</LabelTiny>
-        {history.length === 0 ? (
-          <p className="font-lyric-italic text-[12px] text-earth-mid">
-            Lifecycle changes will appear here.
-          </p>
-        ) : (
-          <ul className="space-y-1.5">
-            {history.map((h) => (
-              <li
-                key={h.id}
-                className="rounded border border-gold/20 bg-ivory-deep px-3 py-2"
-              >
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="font-pressure-caps text-[10px] text-saffron tracking-wider">
-                    {h.changeType}
-                  </span>
-                  <span className="font-pressure-caps text-[9px] text-earth-mid">
-                    {new Date(h.createdAt).toLocaleString()}
-                  </span>
-                </div>
-                {(h.fromValue || h.toValue) && (
-                  <p className="font-sans text-[12px] text-earth-deep mt-0.5">
-                    {h.fromValue ? `${h.fromValue} → ` : ""}
-                    {h.toValue ?? "—"}
-                  </p>
-                )}
-                {h.reason && (
-                  <p className="font-lyric-italic text-[12px] text-earth-deep mt-1">
-                    {h.reason}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {/* ── Tasks (Eisenhower) ────────────────────────────────── */}
+      <TaskMatrix goalId={goal.id} />
 
       {/* ── Add sub-task modal ─────────────────────────────────── */}
       {addSubOpen && (
@@ -378,7 +392,6 @@ export default function GoalDetailPage({
             role="dialog"
             aria-modal="true"
             aria-label="Status change reason"
-            onClick={() => setStatusModalOpen(null)}
           >
             <div
               onClick={(e) => e.stopPropagation()}
@@ -529,7 +542,6 @@ function EditGoalModal({
       role="dialog"
       aria-modal="true"
       aria-label="Edit goal"
-      onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}

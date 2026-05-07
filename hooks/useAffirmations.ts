@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import type { Affirmation } from "@/types";
+import type { Affirmation, AffirmationLanguage } from "@/types";
 
 async function fetchAffirmations(): Promise<Affirmation[]> {
   const res = await fetch("/api/affirmations");
@@ -25,7 +25,11 @@ export function useAffirmations() {
 export function useCreateAffirmation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { text: string; isActive?: boolean }) => {
+    mutationFn: async (input: {
+      text: string;
+      language?: AffirmationLanguage;
+      isActive?: boolean;
+    }) => {
       const res = await fetch("/api/affirmations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,6 +54,7 @@ export function useCreateAffirmation() {
         id: tempId,
         userId: "",
         text: input.text.trim().slice(0, 280),
+        language: input.language ?? "en-US",
         sortOrder: maxSort + 1,
         isActive: input.isActive ?? true,
         createdAt: now,
@@ -83,6 +88,7 @@ export function useUpdateAffirmation() {
     mutationFn: async (input: {
       id: string;
       text?: string;
+      language?: AffirmationLanguage;
       sortOrder?: number;
       isActive?: boolean;
     }) => {
@@ -107,6 +113,9 @@ export function useUpdateAffirmation() {
             ? {
                 ...a,
                 ...(input.text !== undefined ? { text: input.text } : {}),
+                ...(input.language !== undefined
+                  ? { language: input.language }
+                  : {}),
                 ...(input.sortOrder !== undefined
                   ? { sortOrder: input.sortOrder }
                   : {}),
