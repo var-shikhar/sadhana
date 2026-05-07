@@ -24,6 +24,7 @@ interface GoalSuggestionListProps {
 const SHAPE_CHIP: Record<GoalShape, string> = {
   daily: "Daily",
   weekly: "Weekly",
+  monthly: "Monthly",
   by_date: "By date",
 };
 

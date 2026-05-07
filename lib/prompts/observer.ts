@@ -203,8 +203,8 @@ export async function observeNudges(userId: string): Promise<Nudge[]> {
           severity: "gentle",
           title: `${g.title} — ${total} of ${g.weeklyTarget} this week.`,
           body: `${remaining} more to keep this week. ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left.`,
-          action: { label: "Log one", href: `/categories/${g.categoryId}` },
-          categoryId: g.categoryId,
+          action: { label: "Log one", href: `/goals/${g.id}` },
+          categoryId: g.categoryId ?? undefined,
           tag: "weekly-behind",
         });
       }
@@ -288,8 +288,8 @@ export async function observeNudges(userId: string): Promise<Nudge[]> {
         severity: "important",
         title: `${g.title} — ${daysLeft} ${daysLeft === 1 ? "day" : "days"} remain.`,
         body: `More than half is still ahead. Pick a daily rhythm to keep, or push the deadline.`,
-        action: { label: "Open goal", href: `/categories/${g.categoryId}` },
-        categoryId: g.categoryId,
+        action: { label: "Open goal", href: `/goals/${g.id}` },
+        categoryId: g.categoryId ?? undefined,
         tag: "bydate-pressure",
       });
     }

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { goals, goalLogs, categories } from "@/lib/db/schema";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import type { GoalShape, GoalSource, CategoryColor } from "@/types";
 
 function ymd(d: Date): string {
@@ -19,17 +19,17 @@ function isoWeekStart(date: string): string {
 
 export interface TodayGoalRow {
   id: string;
-  categoryId: string;
-  categoryTitle: string;
-  categoryIcon: string;
-  categoryColor: CategoryColor;
+  /** null when uncategorized. */
+  categoryId: string | null;
+  categoryTitle: string | null;
+  categoryColor: CategoryColor | null;
   title: string;
   shape: GoalShape;
   source: GoalSource;
   // daily-shape:
   todayDone?: boolean;
   streak?: number;
-  // weekly-shape:
+  // weekly OR monthly-shape (reuses weeklyTarget column for the periodic target):
   weekTotal?: number;
   weeklyTarget?: number;
   // by_date-shape:
@@ -53,7 +53,9 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
     return ymd(d);
   })();
 
-  // Pull goals + their categories in one query
+  // Pull TOP-LEVEL goals + their (optional) categories in one query.
+  // LEFT JOIN — uncategorized goals are kept; sub-goals are excluded.
+  // We also drop goals whose category exists but is paused.
   const rows = await db
     .select({
       id: goals.id,
@@ -65,20 +67,21 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
       deadlineDate: goals.deadlineDate,
       categoryId: goals.categoryId,
       categoryTitle: categories.title,
-      categoryIcon: categories.icon,
       categoryColor: categories.color,
-      categoryPriority: categories.priority,
+      categoryActive: categories.isActive,
     })
     .from(goals)
-    .innerJoin(categories, eq(categories.id, goals.categoryId))
+    .leftJoin(categories, eq(categories.id, goals.categoryId))
     .where(
       and(
         eq(goals.userId, userId),
         eq(goals.status, "active"),
-        eq(categories.isActive, true)
+        isNull(goals.parentId),
+        // Uncategorized goal OR its category is active.
+        or(isNull(goals.categoryId), eq(categories.isActive, true)),
       )
     )
-    .orderBy(categories.priority, goals.sortOrder);
+    .orderBy(categories.sortOrder, goals.sortOrder);
 
   if (rows.length === 0) return [];
 
@@ -137,7 +140,6 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
         id: r.id,
         categoryId: r.categoryId,
         categoryTitle: r.categoryTitle,
-        categoryIcon: r.categoryIcon,
         categoryColor: r.categoryColor,
         title: r.title,
         shape: r.shape,
@@ -157,7 +159,6 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
         id: r.id,
         categoryId: r.categoryId,
         categoryTitle: r.categoryTitle,
-        categoryIcon: r.categoryIcon,
         categoryColor: r.categoryColor,
         title: r.title,
         shape: r.shape,
@@ -165,6 +166,31 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
         weekTotal,
         weeklyTarget: target,
         isMet: weekTotal >= target,
+      };
+    }
+
+    if (r.shape === "monthly") {
+      // First day of the calendar month containing `today`.
+      const m = (() => {
+        const d = new Date(today + "T00:00:00");
+        d.setDate(1);
+        return ymd(d);
+      })();
+      const monthTotal = goalLogsArr
+        .filter((l) => l.date >= m && l.date <= today)
+        .reduce((sum, l) => sum + (l.value || 0), 0);
+      const target = r.weeklyTarget ?? 1;
+      return {
+        id: r.id,
+        categoryId: r.categoryId,
+        categoryTitle: r.categoryTitle,
+        categoryColor: r.categoryColor,
+        title: r.title,
+        shape: r.shape,
+        source: r.source,
+        weekTotal: monthTotal,
+        weeklyTarget: target,
+        isMet: monthTotal >= target,
       };
     }
 
@@ -185,7 +211,6 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
       id: r.id,
       categoryId: r.categoryId,
       categoryTitle: r.categoryTitle,
-      categoryIcon: r.categoryIcon,
       categoryColor: r.categoryColor,
       title: r.title,
       shape: r.shape,

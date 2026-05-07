@@ -3,6 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import type {
+  Goal,
+  GoalHistoryEntry,
+  GoalHorizon,
   GoalShape,
   GoalSource,
   GoalStatus,
@@ -238,6 +241,233 @@ export function useLogGoal() {
       qc.invalidateQueries({
         queryKey: queryKeys.goalsByCategory(vars.categoryId),
       });
+    },
+  });
+}
+
+// ─── New top-level goal hooks (used by /goals surface) ───────────────────
+
+interface AllGoalsFilters {
+  horizon?: GoalHorizon;
+  shape?: GoalShape;
+  status?: GoalStatus;
+  category?: "all" | "none" | string;
+}
+
+function buildGoalsQuery(filters: AllGoalsFilters = {}): string {
+  const params = new URLSearchParams();
+  if (filters.horizon) params.set("horizon", filters.horizon);
+  if (filters.shape) params.set("shape", filters.shape);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.category && filters.category !== "all") {
+    params.set("category", filters.category);
+  }
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
+
+export function useAllGoals(filters: AllGoalsFilters = {}) {
+  const key = [
+    ...queryKeys.goals(),
+    "all",
+    filters.horizon ?? "any",
+    filters.shape ?? "any",
+    filters.status ?? "any",
+    filters.category ?? "any",
+  ] as const;
+  const query = useQuery({
+    queryKey: key,
+    queryFn: async () => {
+      const res = await fetch(`/api/goals${buildGoalsQuery(filters)}`);
+      if (!res.ok) throw new Error("Failed to load goals");
+      return (await res.json()) as GoalWithProgress[];
+    },
+  });
+  return {
+    goals: query.data ?? [],
+    loading: query.isLoading,
+    error: query.error,
+  };
+}
+
+export function useGoal(goalId: string | null | undefined) {
+  const query = useQuery({
+    queryKey: goalId ? queryKeys.goal(goalId) : ["goals", "id", "_none"],
+    enabled: !!goalId,
+    queryFn: async () => {
+      const res = await fetch(`/api/goals/${goalId}`);
+      if (!res.ok) throw new Error("Failed to load goal");
+      return (await res.json()) as GoalWithProgress;
+    },
+  });
+  return {
+    goal: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error,
+  };
+}
+
+export function useSubGoals(parentId: string | null | undefined) {
+  const query = useQuery({
+    queryKey: parentId ? queryKeys.subGoals(parentId) : ["goals", "sub", "_none"],
+    enabled: !!parentId,
+    queryFn: async () => {
+      const res = await fetch(`/api/goals/${parentId}/subgoals`);
+      if (!res.ok) throw new Error("Failed to load sub-goals");
+      return (await res.json()) as GoalWithProgress[];
+    },
+  });
+  return {
+    subGoals: query.data ?? [],
+    loading: query.isLoading,
+  };
+}
+
+export function useGoalHistory(goalId: string | null | undefined) {
+  const query = useQuery({
+    queryKey: goalId
+      ? queryKeys.goalHistory(goalId)
+      : ["goals", "history", "_none"],
+    enabled: !!goalId,
+    queryFn: async () => {
+      const res = await fetch(`/api/goals/${goalId}/history`);
+      if (!res.ok) throw new Error("Failed to load history");
+      return (await res.json()) as GoalHistoryEntry[];
+    },
+  });
+  return {
+    entries: query.data ?? [],
+    loading: query.isLoading,
+  };
+}
+
+interface GoalLogRow {
+  id: string;
+  goalId: string;
+  date: string;
+  value: number;
+  note: string | null;
+  loggedAt: string;
+}
+
+export function useGoalLogs(goalId: string | null | undefined) {
+  const query = useQuery({
+    queryKey: goalId
+      ? ([...queryKeys.goal(goalId), "logs"] as const)
+      : (["goals", "logs", "_none"] as const),
+    enabled: !!goalId,
+    queryFn: async () => {
+      const res = await fetch(`/api/goals/${goalId}/log`);
+      if (!res.ok) throw new Error("Failed to load logs");
+      return (await res.json()) as GoalLogRow[];
+    },
+  });
+  return {
+    logs: query.data ?? [],
+    loading: query.isLoading,
+  };
+}
+
+interface CreateGoalV2Payload {
+  title: string;
+  description?: string | null;
+  horizon?: GoalHorizon;
+  shape: GoalShape;
+  weeklyTarget?: number | null;
+  totalTarget?: number | null;
+  deadlineDate?: string | null;
+  categoryId?: string | null;
+  parentId?: string | null;
+  source?: GoalSource;
+}
+
+/** POST /api/goals — top-level or sub-goal (parentId set). */
+export function useCreateGoalV2() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CreateGoalV2Payload) => {
+      const res = await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create goal");
+      }
+      return (await res.json()) as Goal;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.goals() });
+      if (vars.parentId) {
+        qc.invalidateQueries({ queryKey: queryKeys.subGoals(vars.parentId) });
+      }
+      if (vars.categoryId) {
+        qc.invalidateQueries({
+          queryKey: queryKeys.goalsByCategory(vars.categoryId),
+        });
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.todayGoals() });
+    },
+  });
+}
+
+interface UpdateGoalV2Payload {
+  goalId: string;
+  patch: Partial<{
+    title: string;
+    description: string | null;
+    horizon: GoalHorizon;
+    shape: GoalShape;
+    weeklyTarget: number | null;
+    totalTarget: number | null;
+    deadlineDate: string | null;
+    status: GoalStatus;
+    categoryId: string | null;
+    parentId: string | null;
+    sortOrder: number;
+    reason: string | null;
+  }>;
+  /** parent goal id, if this goal is a sub-goal — for sub-goal cache invalidation. */
+  parentId?: string | null;
+}
+
+export function useUpdateGoalV2() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ goalId, patch }: UpdateGoalV2Payload) => {
+      const res = await fetch(`/api/goals/${goalId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update goal");
+      }
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.goals() });
+      qc.invalidateQueries({ queryKey: queryKeys.goal(vars.goalId) });
+      qc.invalidateQueries({ queryKey: queryKeys.goalHistory(vars.goalId) });
+      if (vars.parentId) {
+        qc.invalidateQueries({ queryKey: queryKeys.subGoals(vars.parentId) });
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.todayGoals() });
+    },
+  });
+}
+
+export function useDeleteGoalV2() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (goalId: string) => {
+      const res = await fetch(`/api/goals/${goalId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to archive goal");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.goals() });
+      qc.invalidateQueries({ queryKey: queryKeys.todayGoals() });
     },
   });
 }

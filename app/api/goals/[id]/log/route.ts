@@ -1,10 +1,26 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/require-user";
-import { logGoalProgress, unlogGoalProgress } from "@/lib/goals/progress";
+import {
+  listGoalLogs,
+  logGoalProgress,
+  unlogGoalProgress,
+} from "@/lib/goals/progress";
 
 function todayYmd(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export async function GET(
+  _req: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+  const { id: goalId } = await context.params;
+
+  const logs = await listGoalLogs(auth.userId, goalId);
+  return NextResponse.json(logs);
 }
 
 export async function POST(

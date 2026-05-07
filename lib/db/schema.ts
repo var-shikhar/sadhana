@@ -63,6 +63,7 @@ export const categoryColorEnum = pgEnum("category_color", [
 export const goalShapeEnum = pgEnum("goal_shape", [
   "daily",
   "weekly",
+  "monthly",
   "by_date",
 ]);
 export const goalStatusEnum = pgEnum("goal_status", [
@@ -74,6 +75,11 @@ export const goalStatusEnum = pgEnum("goal_status", [
 export const goalSourceEnum = pgEnum("goal_source", [
   "user",
   "suggestion",
+]);
+export const goalHorizonEnum = pgEnum("goal_horizon", [
+  "short_term",
+  "medium_term",
+  "long_term",
 ]);
 
 // ── Scripture / RAG ──
@@ -516,12 +522,20 @@ export const verseTags = pgTable(
   ]
 );
 
+/**
+ * Goals are top-level. Category is an optional label (null = uncategorized).
+ * `parent_id` carries one-level-deep sub-goals (a sub-goal cannot itself
+ * have sub-goals — enforced in API). `horizon` is short/medium/long-term;
+ * a sub-goal's horizon must be ≤ its parent's. Cascade delete from parent.
+ */
 export const goals = pgTable("goals", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),
-  categoryId: uuid("category_id").notNull(),
+  categoryId: uuid("category_id"),
+  parentId: uuid("parent_id"),
   title: text("title").notNull(),
   description: text("description"),
+  horizon: goalHorizonEnum("horizon").notNull().default("medium_term"),
   shape: goalShapeEnum("shape").notNull(),
   // shape-specific
   weeklyTarget: integer("weekly_target"),
@@ -547,14 +561,33 @@ export const goalLogs = pgTable("goal_logs", {
   loggedAt: timestamp("logged_at", { withTimezone: true }).defaultNow(),
 });
 
+/**
+ * Audit trail of goal lifecycle changes. One row per tracked-field change
+ * on PATCH (status, horizon, shape, title, category_id, parent_id,
+ * deadline_date) plus a "created" row on POST. `reason` is user-supplied,
+ * surfaced in the UI only for status changes today.
+ */
+export const goalHistory = pgTable(
+  "goal_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    goalId: uuid("goal_id").notNull(),
+    userId: text("user_id").notNull(),
+    changeType: text("change_type").notNull(),
+    fromValue: text("from_value"),
+    toValue: text("to_value"),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index("goal_history_goal_idx").on(table.goalId, table.createdAt)]
+);
+
 export const categories = pgTable("categories", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),
   title: text("title").notNull(),
   description: text("description"),
-  icon: text("icon").notNull().default("circle"), // emoji or lucide name
   color: categoryColorEnum("color").notNull().default("saffron"),
-  priority: integer("priority").notNull().default(3), // 1=highest, 5=lowest
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),

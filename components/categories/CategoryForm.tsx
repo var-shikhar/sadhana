@@ -5,21 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
-import { IconPicker } from "./IconPicker";
 import { ColorPicker } from "./ColorPicker";
-import { PriorityPicker } from "./PriorityPicker";
-import { CATEGORY_ICONS, type Category, type CategoryColor } from "@/types";
+import type { Category, CategoryColor } from "@/types";
 
 interface CategoryFormProps {
   initial?: Partial<Category>;
   onSubmit: (data: {
     title: string;
     description: string | null;
-    icon: string;
     color: CategoryColor;
-    priority: number;
   }) => void | Promise<void>;
   onCancel?: () => void;
+  onDelete?: () => void;
   submitting?: boolean;
   submitLabel?: string;
 }
@@ -28,14 +25,13 @@ export function CategoryForm({
   initial,
   onSubmit,
   onCancel,
+  onDelete,
   submitting = false,
   submitLabel = "Create category",
 }: CategoryFormProps) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [icon, setIcon] = useState<string>(initial?.icon ?? CATEGORY_ICONS[0]);
   const [color, setColor] = useState<CategoryColor>(initial?.color ?? "saffron");
-  const [priority, setPriority] = useState<number>(initial?.priority ?? 3);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,9 +39,7 @@ export function CategoryForm({
     void onSubmit({
       title: title.trim(),
       description: description.trim() || null,
-      icon,
       color,
-      priority,
     });
   }
 
@@ -79,35 +73,39 @@ export function CategoryForm({
       </div>
 
       <div className="space-y-2">
-        <LabelTiny>Icon</LabelTiny>
-        <IconPicker value={icon} onChange={setIcon} />
-      </div>
-
-      <div className="space-y-2">
         <LabelTiny>Color</LabelTiny>
         <ColorPicker value={color} onChange={setColor} />
       </div>
 
-      <div className="space-y-2">
-        <LabelTiny>Priority</LabelTiny>
-        <PriorityPicker value={priority} onChange={setPriority} />
-      </div>
-
-      <div className="flex gap-2 pt-2">
-        {onCancel && (
+      <div className="flex items-center justify-between gap-2 pt-2">
+        {onDelete ? (
           <Button
             type="button"
             variant="outline"
-            className="flex-1"
-            onClick={onCancel}
+            onClick={onDelete}
             disabled={submitting}
+            className="text-saffron border-saffron/40 hover:bg-saffron/10"
           >
-            Cancel
+            Remove
           </Button>
+        ) : (
+          <span />
         )}
-        <Button type="submit" className="flex-1" disabled={!title.trim() || submitting}>
-          {submitting ? "Saving…" : submitLabel}
-        </Button>
+        <div className="flex items-center gap-2">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+          )}
+          <Button type="submit" disabled={!title.trim() || submitting}>
+            {submitting ? "Saving…" : submitLabel}
+          </Button>
+        </div>
       </div>
     </form>
   );

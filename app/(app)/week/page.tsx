@@ -288,14 +288,9 @@ function DailyGoalWeekRow({
       <div className="flex items-center gap-2">
         <span
           aria-hidden
-          className="w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0"
-          style={{
-            backgroundColor: `${colorHex}1f`,
-            border: `1px solid ${colorHex}`,
-          }}
-        >
-          {goal.categoryIcon}
-        </span>
+          className="w-1.5 h-6 rounded-full shrink-0"
+          style={{ backgroundColor: colorHex }}
+        />
         <div className="flex-1 min-w-0">
           <div className="font-lyric text-sm text-ink leading-tight truncate">
             {goal.title}
@@ -371,14 +366,9 @@ function OtherGoalRow({ goal }: { goal: WeekGoalRow }) {
       <div className="flex items-center gap-2">
         <span
           aria-hidden
-          className="w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0"
-          style={{
-            backgroundColor: `${colorHex}1f`,
-            border: `1px solid ${colorHex}`,
-          }}
-        >
-          {goal.categoryIcon}
-        </span>
+          className="w-1.5 h-6 rounded-full shrink-0"
+          style={{ backgroundColor: colorHex }}
+        />
         <div className="flex-1 min-w-0">
           <div className="font-lyric text-sm text-ink leading-tight truncate">
             {goal.title}

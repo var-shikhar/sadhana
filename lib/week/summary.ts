@@ -34,7 +34,6 @@ export interface WeekDailyGoalRow {
   title: string;
   shape: "daily";
   categoryTitle: string;
-  categoryIcon: string;
   categoryColor: CategoryColor;
   source: GoalSource;
   /** length 7, oldest → newest */
@@ -47,7 +46,6 @@ export interface WeekWeeklyGoalRow {
   title: string;
   shape: "weekly";
   categoryTitle: string;
-  categoryIcon: string;
   categoryColor: CategoryColor;
   source: GoalSource;
   weeklyTarget: number;
@@ -60,7 +58,6 @@ export interface WeekByDateGoalRow {
   title: string;
   shape: "by_date";
   categoryTitle: string;
-  categoryIcon: string;
   categoryColor: CategoryColor;
   source: GoalSource;
   /** Logged this week */
@@ -101,9 +98,7 @@ export async function getWeekSummary(userId: string): Promise<WeekSummary> {
       totalTarget: goals.totalTarget,
       deadlineDate: goals.deadlineDate,
       categoryTitle: categories.title,
-      categoryIcon: categories.icon,
       categoryColor: categories.color,
-      categoryPriority: categories.priority,
       categorySortOrder: categories.sortOrder,
       goalSortOrder: goals.sortOrder,
     })
@@ -116,7 +111,7 @@ export async function getWeekSummary(userId: string): Promise<WeekSummary> {
         eq(categories.isActive, true)
       )
     )
-    .orderBy(categories.priority, categories.sortOrder, goals.sortOrder);
+    .orderBy(categories.sortOrder, goals.sortOrder);
 
   // ── Pull this week's goal logs
   const logs = await db
@@ -213,7 +208,6 @@ export async function getWeekSummary(userId: string): Promise<WeekSummary> {
         title: r.title,
         shape: "daily",
         categoryTitle: r.categoryTitle,
-        categoryIcon: r.categoryIcon,
         categoryColor: r.categoryColor,
         source: r.source,
         daySlots: slots,
@@ -231,7 +225,6 @@ export async function getWeekSummary(userId: string): Promise<WeekSummary> {
         title: r.title,
         shape: "weekly",
         categoryTitle: r.categoryTitle,
-        categoryIcon: r.categoryIcon,
         categoryColor: r.categoryColor,
         source: r.source,
         weeklyTarget: target,
@@ -257,7 +250,6 @@ export async function getWeekSummary(userId: string): Promise<WeekSummary> {
       title: r.title,
       shape: "by_date",
       categoryTitle: r.categoryTitle,
-      categoryIcon: r.categoryIcon,
       categoryColor: r.categoryColor,
       source: r.source,
       weekTotal,

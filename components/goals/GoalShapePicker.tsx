@@ -13,6 +13,7 @@ interface GoalShapePickerProps {
 const ICON: Record<GoalShape, string> = {
   daily: "·",
   weekly: "//",
+  monthly: "▣",
   by_date: "→",
 };
 

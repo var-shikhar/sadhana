@@ -240,21 +240,12 @@ export const CATEGORY_COLORS: Array<{ value: CategoryColor; hex: string; label: 
   { value: "gold",    hex: "#d4a259", label: "Gold" },
 ];
 
-/** A small, curated icon set so users don't get lost in emoji or icon-search overhead */
-export const CATEGORY_ICONS = [
-  "🪷", "🔥", "🌿", "🕉️", "📚",
-  "💪", "🧘", "✍️", "🤝", "🌅",
-  "🍃", "💼", "🎨", "🛌", "💧",
-] as const;
-
 export interface Category {
   id: string;
   userId: string;
   title: string;
   description: string | null;
-  icon: string;
   color: CategoryColor;
-  priority: number;     // 1..5 — 1 is highest
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -266,51 +257,97 @@ export interface Category {
 export const STARTER_CATEGORIES: Array<{
   title: string;
   description: string;
-  icon: string;
   color: CategoryColor;
-  priority: number;
 }> = [
   {
     title: "Health",
     description: "Body, sleep, food, movement.",
-    icon: "💪",
     color: "saffron",
-    priority: 1,
   },
   {
     title: "Work / Craft",
     description: "Focus, output, learning your trade.",
-    icon: "💼",
     color: "indigo",
-    priority: 2,
   },
   {
     title: "Relationships",
     description: "Family, friends, presence with the people you love.",
-    icon: "🤝",
     color: "sage",
-    priority: 2,
   },
   {
     title: "Inner Practice",
     description: "Meditation, reflection, prayer — the inward turn.",
-    icon: "🪷",
     color: "gold",
-    priority: 1,
   },
   {
     title: "Rest / Play",
     description: "What restores you. Without this, the others crumble.",
-    icon: "🌅",
     color: "earth",
-    priority: 3,
   },
 ];
 
-// ── Goals (Phase 2: specific things inside a category) ──
-export type GoalShape = "daily" | "weekly" | "by_date";
+// ── Goals (top-level; category is an optional label) ──
+export type GoalShape = "daily" | "weekly" | "monthly" | "by_date";
 export type GoalStatus = "active" | "paused" | "completed" | "abandoned";
 export type GoalSource = "user" | "suggestion";
+export type GoalHorizon = "short_term" | "medium_term" | "long_term";
+
+export const GOAL_HORIZONS: GoalHorizon[] = [
+  "short_term",
+  "medium_term",
+  "long_term",
+];
+
+export const GOAL_HORIZON_LABEL: Record<GoalHorizon, string> = {
+  short_term: "Short term",
+  medium_term: "Medium term",
+  long_term: "Long term",
+};
+
+const HORIZON_RANK: Record<GoalHorizon, number> = {
+  short_term: 1,
+  medium_term: 2,
+  long_term: 3,
+};
+
+/** True iff a sub-goal with `child` horizon may live under a `parent` horizon. */
+export function isHorizonAllowedUnder(
+  child: GoalHorizon,
+  parent: GoalHorizon,
+): boolean {
+  return HORIZON_RANK[child] <= HORIZON_RANK[parent];
+}
+
+export const GOAL_SHAPES: GoalShape[] = ["daily", "weekly", "monthly", "by_date"];
+
+export const GOAL_SHAPE_LABEL: Record<GoalShape, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  by_date: "One-time",
+};
+
+/** Audit trail entry for a goal's lifecycle. */
+export type GoalChangeType =
+  | "created"
+  | "status"
+  | "horizon"
+  | "shape"
+  | "title"
+  | "category"
+  | "parent"
+  | "deadline";
+
+export interface GoalHistoryEntry {
+  id: string;
+  goalId: string;
+  userId: string;
+  changeType: GoalChangeType | string;
+  fromValue: string | null;
+  toValue: string | null;
+  reason: string | null;
+  createdAt: string;
+}
 
 export const GOAL_SHAPE_DEFS: Array<{
   shape: GoalShape;
@@ -341,9 +378,13 @@ export const GOAL_SHAPE_DEFS: Array<{
 export interface Goal {
   id: string;
   userId: string;
-  categoryId: string;
+  /** Optional category label. null when uncategorized. */
+  categoryId: string | null;
+  /** Set when this is a sub-goal. null for top-level goals. */
+  parentId: string | null;
   title: string;
   description: string | null;
+  horizon: GoalHorizon;
   shape: GoalShape;
   weeklyTarget: number | null;
   totalTarget: number | null;

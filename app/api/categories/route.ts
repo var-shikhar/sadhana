@@ -11,9 +11,7 @@ function dbToType(row: typeof categories.$inferSelect): Category {
     userId: row.userId,
     title: row.title,
     description: row.description,
-    icon: row.icon,
     color: row.color,
-    priority: row.priority,
     sortOrder: row.sortOrder,
     isActive: row.isActive,
     createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
@@ -36,7 +34,7 @@ export async function GET(request: Request) {
     .select()
     .from(categories)
     .where(where)
-    .orderBy(asc(categories.priority), asc(categories.sortOrder), desc(categories.createdAt));
+    .orderBy(asc(categories.sortOrder), desc(categories.createdAt));
 
   return NextResponse.json(rows.map(dbToType));
 }
@@ -48,9 +46,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     title: string;
     description?: string | null;
-    icon?: string;
     color?: CategoryColor;
-    priority?: number;
   };
 
   if (!body.title?.trim()) {
@@ -71,18 +67,10 @@ export async function POST(request: Request) {
       userId: auth.userId,
       title: body.title.trim().slice(0, 60),
       description: body.description?.trim().slice(0, 240) || null,
-      icon: body.icon || "🪷",
       color: body.color || "saffron",
-      priority: clampPriority(body.priority ?? 3),
       sortOrder: (maxOrder?.m ?? 0) + 1,
     })
     .returning();
 
   return NextResponse.json(dbToType(row));
-}
-
-function clampPriority(n: number): number {
-  if (n < 1) return 1;
-  if (n > 5) return 5;
-  return Math.round(n);
 }

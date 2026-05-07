@@ -30,61 +30,66 @@ export function TodayGoalsPanel({ className }: TodayGoalsPanelProps) {
           No goals yet.
         </p>
         <p className="font-lyric-italic text-sm text-earth-deep mt-1">
-          Plan your practice — set up a category and one goal.
+          Plan your practice — set one goal to start.
         </p>
-        <Link href="/categories" className="inline-block mt-3">
+        <Link href="/goals" className="inline-block mt-3">
           <Button size="sm">Open Plan</Button>
         </Link>
       </div>
     );
   }
 
-  // Group by category
+  // Group by category. Uncategorized (categoryId === null) collapses into
+  // a single "uncategorized" bucket.
+  const UNCAT = "__uncategorized__";
   const byCat = new Map<
     string,
-    { categoryTitle: string; categoryIcon: string; categoryColor: string; rows: typeof goals }
+    {
+      categoryTitle: string | null;
+      categoryColor: string | null;
+      rows: typeof goals;
+    }
   >();
   for (const g of goals) {
-    if (!byCat.has(g.categoryId)) {
-      byCat.set(g.categoryId, {
+    const key = g.categoryId ?? UNCAT;
+    if (!byCat.has(key)) {
+      byCat.set(key, {
         categoryTitle: g.categoryTitle,
-        categoryIcon: g.categoryIcon,
         categoryColor: g.categoryColor,
         rows: [],
       });
     }
-    byCat.get(g.categoryId)!.rows.push(g);
+    byCat.get(key)!.rows.push(g);
   }
 
   return (
     <div className={cn("space-y-4", className)}>
-      {Array.from(byCat.entries()).map(([catId, group]) => {
-        const colorHex =
-          CATEGORY_COLORS.find((c) => c.value === group.categoryColor)?.hex ?? "#c46a1f";
+      {Array.from(byCat.entries()).map(([catKey, group]) => {
+        const colorHex = group.categoryColor
+          ? (CATEGORY_COLORS.find((c) => c.value === group.categoryColor)?.hex ??
+            "#c46a1f")
+          : "#7a8b5c";
         const kept = group.rows.filter((r) => r.isMet).length;
+
+        const HeaderInner = (
+          <>
+            <span
+              aria-hidden
+              className="w-2 h-7 rounded-full shrink-0"
+              style={{ backgroundColor: colorHex }}
+            />
+            <span className="font-lyric text-base text-ink">
+              {group.categoryTitle ?? "Uncategorized"}
+            </span>
+            <span className="font-pressure-caps text-[9px] text-earth-mid ml-auto">
+              {kept} of {group.rows.length}
+            </span>
+          </>
+        );
+
         return (
-          <div key={catId} className="space-y-2">
-            <Link
-              href={`/categories/${catId}`}
-              className="flex items-center gap-2 group"
-            >
-              <span
-                aria-hidden
-                className="w-7 h-7 rounded-full flex items-center justify-center text-base flex-shrink-0"
-                style={{
-                  backgroundColor: `${colorHex}1f`,
-                  border: `1px solid ${colorHex}`,
-                }}
-              >
-                {group.categoryIcon}
-              </span>
-              <span className="font-lyric text-base text-ink group-hover:text-saffron transition-colors">
-                {group.categoryTitle}
-              </span>
-              <span className="font-pressure-caps text-[9px] text-earth-mid ml-auto">
-                {kept} of {group.rows.length}
-              </span>
-            </Link>
+          <div key={catKey} className="space-y-2">
+            <div className="flex items-center gap-2">{HeaderInner}</div>
 
             <div className="space-y-1.5 pl-1">
               {group.rows.map((g) => (
@@ -150,7 +155,8 @@ function GoalRow({
     );
   }
 
-  if (goal.shape === "weekly") {
+  if (goal.shape === "weekly" || goal.shape === "monthly") {
+    const periodLabel = goal.shape === "weekly" ? "wk" : "mo";
     return (
       <div className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-ivory-deep/50 transition-colors">
         <span className="font-pressure text-saffron text-base w-4 text-center">
@@ -160,7 +166,7 @@ function GoalRow({
           {goal.title}
         </span>
         <span className="font-pressure-caps text-[9px] text-earth-mid">
-          {goal.weekTotal ?? 0}/{goal.weeklyTarget ?? 0}
+          {goal.weekTotal ?? 0}/{goal.weeklyTarget ?? 0} {periodLabel}
         </span>
         {!goal.isMet && (
           <ButtonBare

@@ -1,7 +1,15 @@
 import { db } from "@/lib/db";
 import { goals, goalLogs } from "@/lib/db/schema";
-import { and, eq, gte, lte, desc, sql } from "drizzle-orm";
-import type { Goal, GoalLog, GoalProgress, GoalWithProgress } from "@/types";
+import { and, eq, gte, lte, desc, sql, isNull } from "drizzle-orm";
+import type {
+  Goal,
+  GoalHorizon,
+  GoalLog,
+  GoalProgress,
+  GoalShape,
+  GoalStatus,
+  GoalWithProgress,
+} from "@/types";
 
 function ymd(d: Date): string {
   const y = d.getFullYear();
@@ -24,13 +32,22 @@ function isoWeekStart(date: string): string {
   return ymd(d);
 }
 
-function dbGoalToType(row: typeof goals.$inferSelect): Goal {
+/** First day of the calendar month of `date`, as YYYY-MM-DD. */
+function monthStart(date: string): string {
+  const d = new Date(date + "T00:00:00");
+  d.setDate(1);
+  return ymd(d);
+}
+
+export function dbGoalToType(row: typeof goals.$inferSelect): Goal {
   return {
     id: row.id,
     userId: row.userId,
     categoryId: row.categoryId,
+    parentId: row.parentId,
     title: row.title,
     description: row.description,
+    horizon: row.horizon,
     shape: row.shape,
     weeklyTarget: row.weeklyTarget,
     totalTarget: row.totalTarget,
@@ -111,6 +128,27 @@ export async function computeProgress(goal: Goal): Promise<GoalProgress> {
     };
   }
 
+  if (goal.shape === "monthly") {
+    const start = monthStart(today);
+    const rows = await db
+      .select({ value: goalLogs.value })
+      .from(goalLogs)
+      .where(
+        and(
+          eq(goalLogs.goalId, goal.id),
+          gte(goalLogs.date, start),
+          lte(goalLogs.date, today)
+        )
+      );
+    // Reuse weeklyTarget as the periodic target for monthly too.
+    const monthTotal = rows.reduce((sum, r) => sum + (r.value || 0), 0);
+    const target = goal.weeklyTarget ?? 1;
+    return {
+      weekTotal: monthTotal,
+      isMet: monthTotal >= target,
+    };
+  }
+
   // by_date
   const [row] = await db
     .select({
@@ -138,7 +176,8 @@ export async function computeProgress(goal: Goal): Promise<GoalProgress> {
 }
 
 /**
- * Pull goals for a category, attaching live progress.
+ * Pull TOP-LEVEL goals for a category, attaching live progress. Sub-goals
+ * are excluded from category listings — they live under their parent.
  */
 export async function listGoalsByCategory(
   userId: string,
@@ -151,6 +190,7 @@ export async function listGoalsByCategory(
       and(
         eq(goals.userId, userId),
         eq(goals.categoryId, categoryId),
+        isNull(goals.parentId),
         sql`${goals.status} != 'abandoned'`
       )
     )
@@ -165,14 +205,20 @@ export async function listGoalsByCategory(
   return out;
 }
 
-/** All active goals across all categories, with progress. */
+/** All active TOP-LEVEL goals across all categories, with progress. */
 export async function listActiveGoals(
   userId: string
 ): Promise<GoalWithProgress[]> {
   const rows = await db
     .select()
     .from(goals)
-    .where(and(eq(goals.userId, userId), eq(goals.status, "active")))
+    .where(
+      and(
+        eq(goals.userId, userId),
+        eq(goals.status, "active"),
+        isNull(goals.parentId),
+      )
+    )
     .orderBy(goals.sortOrder, desc(goals.createdAt));
 
   const out: GoalWithProgress[] = [];
@@ -181,6 +227,85 @@ export async function listActiveGoals(
     out.push({ ...goal, progress: await computeProgress(goal) });
   }
   return out;
+}
+
+export interface GoalListFilters {
+  horizon?: GoalHorizon;
+  shape?: GoalShape;
+  status?: GoalStatus;
+  /** "all" → any category, "none" → no category, uuid → that category. */
+  category?: "all" | "none" | string;
+}
+
+/**
+ * List the user's TOP-LEVEL goals (parent_id IS NULL) with optional
+ * filters. Used by the /goals surface.
+ */
+export async function listTopLevelGoals(
+  userId: string,
+  filters: GoalListFilters = {},
+): Promise<GoalWithProgress[]> {
+  const conds = [eq(goals.userId, userId), isNull(goals.parentId)];
+  if (filters.horizon) conds.push(eq(goals.horizon, filters.horizon));
+  if (filters.shape) conds.push(eq(goals.shape, filters.shape));
+  if (filters.status) conds.push(eq(goals.status, filters.status));
+  if (filters.category && filters.category !== "all") {
+    if (filters.category === "none") conds.push(isNull(goals.categoryId));
+    else conds.push(eq(goals.categoryId, filters.category));
+  }
+
+  const rows = await db
+    .select()
+    .from(goals)
+    .where(and(...conds))
+    .orderBy(goals.sortOrder, desc(goals.createdAt));
+
+  const out: GoalWithProgress[] = [];
+  for (const row of rows) {
+    const goal = dbGoalToType(row);
+    out.push({ ...goal, progress: await computeProgress(goal) });
+  }
+  return out;
+}
+
+/** Sub-goals of a given parent, with progress. Excludes abandoned. */
+export async function listSubGoals(
+  userId: string,
+  parentId: string,
+): Promise<GoalWithProgress[]> {
+  const rows = await db
+    .select()
+    .from(goals)
+    .where(
+      and(
+        eq(goals.userId, userId),
+        eq(goals.parentId, parentId),
+        sql`${goals.status} != 'abandoned'`,
+      )
+    )
+    .orderBy(goals.sortOrder, desc(goals.createdAt));
+
+  const out: GoalWithProgress[] = [];
+  for (const row of rows) {
+    const goal = dbGoalToType(row);
+    out.push({ ...goal, progress: await computeProgress(goal) });
+  }
+  return out;
+}
+
+/** Recent log rows for a goal. */
+export async function listGoalLogs(
+  userId: string,
+  goalId: string,
+  limit = 50,
+): Promise<GoalLog[]> {
+  const rows = await db
+    .select()
+    .from(goalLogs)
+    .where(and(eq(goalLogs.userId, userId), eq(goalLogs.goalId, goalId)))
+    .orderBy(desc(goalLogs.date), desc(goalLogs.loggedAt))
+    .limit(limit);
+  return rows.map(dbLogToType);
 }
 
 export async function getGoal(

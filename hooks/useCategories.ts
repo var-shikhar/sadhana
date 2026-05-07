@@ -25,9 +25,7 @@ export function useCategories() {
 interface CreateCategoryPayload {
   title: string;
   description?: string | null;
-  icon?: string;
   color?: CategoryColor;
-  priority?: number;
 }
 
 export function useCreateCategory() {
@@ -48,9 +46,7 @@ export function useCreateCategory() {
     },
     onSuccess: (created) => {
       qc.setQueryData<Category[]>(queryKeys.categories(), (old = []) =>
-        [...old, created].sort(
-          (a, b) => a.priority - b.priority || a.sortOrder - b.sortOrder
-        )
+        [...old, created].sort((a, b) => a.sortOrder - b.sortOrder)
       );
     },
     onSettled: () => {
@@ -64,9 +60,7 @@ interface UpdateCategoryPayload {
   patch: Partial<{
     title: string;
     description: string | null;
-    icon: string;
     color: CategoryColor;
-    priority: number;
     sortOrder: number;
     isActive: boolean;
   }>;

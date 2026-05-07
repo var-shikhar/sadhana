@@ -108,7 +108,6 @@ export async function buildPractitionerSnapshot(
           totalTarget: goals.totalTarget,
           deadlineDate: goals.deadlineDate,
           categoryTitle: categories.title,
-          categoryPriority: categories.priority,
         })
         .from(goals)
         .innerJoin(categories, eq(categories.id, goals.categoryId))
@@ -119,7 +118,7 @@ export async function buildPractitionerSnapshot(
             eq(categories.isActive, true)
           )
         )
-        .orderBy(categories.priority, goals.sortOrder),
+        .orderBy(categories.sortOrder, goals.sortOrder),
       db
         .select()
         .from(reflections)

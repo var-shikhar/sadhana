@@ -23,8 +23,9 @@ export function useTodayGoals() {
 
 interface ToggleTodayPayload {
   goalId: string;
-  categoryId: string;
-  shape: "daily" | "weekly" | "by_date";
+  /** null when the goal is uncategorized — invalidation is best-effort. */
+  categoryId: string | null;
+  shape: "daily" | "weekly" | "monthly" | "by_date";
   done: boolean;
   value?: number;
 }
@@ -69,7 +70,7 @@ export function useToggleTodayGoal() {
                 (g.streak ?? 0) + (done ? (g.todayDone ? 0 : 1) : g.todayDone ? -1 : 0)
               );
               next.isMet = !!done;
-            } else if (shape === "weekly") {
+            } else if (shape === "weekly" || shape === "monthly") {
               const delta = value ?? 1;
               next.weekTotal = Math.max(0, (g.weekTotal ?? 0) + (done ? delta : -delta));
               next.isMet = (next.weekTotal ?? 0) >= (g.weeklyTarget ?? 1);
@@ -89,9 +90,12 @@ export function useToggleTodayGoal() {
     },
     onSettled: (_d, _e, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.todayGoals() });
-      qc.invalidateQueries({
-        queryKey: queryKeys.goalsByCategory(vars.categoryId),
-      });
+      if (vars.categoryId) {
+        qc.invalidateQueries({
+          queryKey: queryKeys.goalsByCategory(vars.categoryId),
+        });
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.goals() });
       qc.invalidateQueries({ queryKey: queryKeys.prompts() });
     },
   });

@@ -28,6 +28,11 @@ const SETTINGS_ITEMS: Array<{
     label: "Affirmations",
     description: "Short statements you choose to revisit.",
   },
+  {
+    href: "/categories",
+    label: "Categories",
+    description: "Optional labels for grouping your goals.",
+  },
 ];
 
 export default function SettingsPage() {
