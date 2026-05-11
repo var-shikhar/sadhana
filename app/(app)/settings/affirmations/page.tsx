@@ -158,15 +158,17 @@ export default function AffirmationsSettingsPage() {
 
       <GoldRule width="section" />
 
-      {/* Entry point to the recital flow — only useful when there's at least
-          one active affirmation to practice with. */}
+      {/* The recital trigger now lives on the Plan tab — this page is
+          purely the library. We keep a quiet pointer so users coming here
+          looking to practice know where it moved. */}
       {affirmations.some((a) => a.isActive) && (
-        <Link
-          href="/settings/affirmations/practice"
-          className="block w-full text-center bg-saffron text-ivory rounded-md px-4 py-2.5 text-[11px] font-pressure-caps tracking-[3px] shadow-[0_2px_8px_rgba(196,106,31,0.25)] hover:bg-saffron/90 transition-colors"
-        >
-          Begin practice →
-        </Link>
+        <p className="font-lyric-italic text-[11px] text-earth-mid text-center">
+          Recite from the{" "}
+          <Link href="/plan" className="text-saffron hover:underline">
+            Plan tab
+          </Link>{" "}
+          — that&apos;s the morning trigger.
+        </p>
       )}
 
       <Button type="button" onClick={openAdd} className="w-full">

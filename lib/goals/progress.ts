@@ -10,6 +10,7 @@ import type {
   GoalStatus,
   GoalWithProgress,
 } from "@/types";
+import { todayYmd } from "@/lib/goals/lifecycle";
 
 function ymd(d: Date): string {
   const y = d.getFullYear();
@@ -51,15 +52,39 @@ export function dbGoalToType(row: typeof goals.$inferSelect): Goal {
     shape: row.shape,
     weeklyTarget: row.weeklyTarget,
     totalTarget: row.totalTarget,
-    deadlineDate: row.deadlineDate,
     source: row.source,
     status: row.status,
-    startedDate: row.startedDate,
     completedDate: row.completedDate,
+    startDate: row.startDate,
+    endDate: row.endDate,
     sortOrder: row.sortOrder,
     createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
     updatedAt: row.updatedAt?.toISOString() ?? new Date().toISOString(),
   };
+}
+
+/**
+ * Promote any of this user's 'scheduled' goals whose start_date has arrived
+ * to 'active'. Cheap idempotent UPDATE — run at the start of every list /
+ * detail read so the scheduled→active transition is invisible to callers.
+ *
+ * Returns the ids of newly-promoted goals so the caller can emit nudges
+ * ("Today is the day for: {title}") on the next Home render.
+ */
+export async function promoteScheduledGoals(userId: string): Promise<string[]> {
+  const today = todayYmd();
+  const promoted = await db
+    .update(goals)
+    .set({ status: "active", updatedAt: new Date() })
+    .where(
+      and(
+        eq(goals.userId, userId),
+        eq(goals.status, "scheduled"),
+        lte(goals.startDate, today),
+      ),
+    )
+    .returning({ id: goals.id });
+  return promoted.map((p) => p.id);
 }
 
 function dbLogToType(row: typeof goalLogs.$inferSelect): GoalLog {
@@ -158,11 +183,11 @@ export async function computeProgress(goal: Goal): Promise<GoalProgress> {
     .where(eq(goalLogs.goalId, goal.id));
   const totalSoFar = Number(row?.total ?? 0);
   const target = goal.totalTarget ?? 1;
-  const daysRemaining = goal.deadlineDate
+  const daysRemaining = goal.endDate
     ? Math.max(
         0,
         Math.round(
-          (new Date(goal.deadlineDate + "T00:00:00").getTime() -
+          (new Date(goal.endDate + "T00:00:00").getTime() -
             new Date(today + "T00:00:00").getTime()) /
             86_400_000
         )
@@ -239,12 +264,15 @@ export interface GoalListFilters {
 
 /**
  * List the user's TOP-LEVEL goals (parent_id IS NULL) with optional
- * filters. Used by the /goals surface.
+ * filters. Used by the /goals surface. Promotes any due 'scheduled' goals
+ * to 'active' before reading so callers always see the live state.
  */
 export async function listTopLevelGoals(
   userId: string,
   filters: GoalListFilters = {},
 ): Promise<GoalWithProgress[]> {
+  await promoteScheduledGoals(userId);
+
   const conds = [eq(goals.userId, userId), isNull(goals.parentId)];
   if (filters.horizon) conds.push(eq(goals.horizon, filters.horizon));
   if (filters.shape) conds.push(eq(goals.shape, filters.shape));
@@ -312,6 +340,7 @@ export async function getGoal(
   userId: string,
   goalId: string
 ): Promise<GoalWithProgress | null> {
+  await promoteScheduledGoals(userId);
   const [row] = await db
     .select()
     .from(goals)

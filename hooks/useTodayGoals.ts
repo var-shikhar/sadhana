@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
+import { toast } from "@/lib/stores/toast";
 import type { TodayGoalRow } from "@/lib/goals/today";
 
 async function fetchTodayGoals(): Promise<TodayGoalRow[]> {
@@ -87,6 +88,10 @@ export function useToggleTodayGoal() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(queryKeys.todayGoals(), ctx.previous);
+    },
+    onSuccess: (_d, vars) => {
+      if (vars.done) toast.success("Logged for today");
+      else toast.show("Removed from today");
     },
     onSettled: (_d, _e, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.todayGoals() });

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { goals, goalLogs, categories } from "@/lib/db/schema";
 import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import type { GoalShape, GoalSource, CategoryColor } from "@/types";
+import { promoteScheduledGoals } from "@/lib/goals/progress";
 
 function ymd(d: Date): string {
   const y = d.getFullYear();
@@ -45,6 +46,11 @@ export interface TodayGoalRow {
  * (replacing the legacy habit-only view).
  */
 export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
+  // Promote any 'scheduled' goal whose start date has arrived BEFORE we
+  // read — otherwise a goal that became due today would silently miss the
+  // Plan/Today surface for one cycle.
+  await promoteScheduledGoals(userId);
+
   const today = ymd(new Date());
   const weekStart = isoWeekStart(today);
   const ninetyDaysAgo = (() => {
@@ -55,7 +61,11 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
 
   // Pull TOP-LEVEL goals + their (optional) categories in one query.
   // LEFT JOIN — uncategorized goals are kept; sub-goals are excluded.
-  // We also drop goals whose category exists but is paused.
+  // Filters to in-flight goals only:
+  //   - status = 'active' (excludes scheduled/paused/completed/abandoned)
+  //   - start_date <= today
+  //   - end_date >= today OR null (open-ended)
+  //   - category active OR null
   const rows = await db
     .select({
       id: goals.id,
@@ -64,7 +74,7 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
       source: goals.source,
       weeklyTarget: goals.weeklyTarget,
       totalTarget: goals.totalTarget,
-      deadlineDate: goals.deadlineDate,
+      endDate: goals.endDate,
       categoryId: goals.categoryId,
       categoryTitle: categories.title,
       categoryColor: categories.color,
@@ -77,6 +87,8 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
         eq(goals.userId, userId),
         eq(goals.status, "active"),
         isNull(goals.parentId),
+        lte(goals.startDate, today),
+        or(isNull(goals.endDate), gte(goals.endDate, today)),
         // Uncategorized goal OR its category is active.
         or(isNull(goals.categoryId), eq(categories.isActive, true)),
       )
@@ -197,11 +209,11 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
     // by_date
     const totalSoFar = totalByGoal.get(r.id) ?? 0;
     const target = r.totalTarget ?? 1;
-    const daysRemaining = r.deadlineDate
+    const daysRemaining = r.endDate
       ? Math.max(
           0,
           Math.round(
-            (new Date(r.deadlineDate + "T00:00:00").getTime() -
+            (new Date(r.endDate + "T00:00:00").getTime() -
               new Date(today + "T00:00:00").getTime()) /
               86_400_000
           )

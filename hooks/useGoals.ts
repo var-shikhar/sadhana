@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
+import { toast } from "@/lib/stores/toast";
 import type {
   Goal,
   GoalHistoryEntry,
@@ -40,7 +41,8 @@ interface CreateGoalPayload {
   shape: GoalShape;
   weeklyTarget?: number | null;
   totalTarget?: number | null;
-  deadlineDate?: string | null;
+  endDate?: string | null;
+  startDate?: string | null;
   source?: GoalSource;
 }
 
@@ -79,7 +81,8 @@ interface UpdateGoalPayload {
     shape: GoalShape;
     weeklyTarget: number | null;
     totalTarget: number | null;
-    deadlineDate: string | null;
+    endDate: string | null;
+    startDate: string | null;
     status: GoalStatus;
     sortOrder: number;
   }>;
@@ -375,7 +378,10 @@ interface CreateGoalV2Payload {
   shape: GoalShape;
   weeklyTarget?: number | null;
   totalTarget?: number | null;
-  deadlineDate?: string | null;
+  /** Optional finish line for any cadence. null = open-ended. */
+  endDate?: string | null;
+  /** Defaults to today; future value puts the goal in 'scheduled' status. */
+  startDate?: string | null;
   categoryId?: string | null;
   parentId?: string | null;
   source?: GoalSource;
@@ -408,6 +414,7 @@ export function useCreateGoalV2() {
         });
       }
       qc.invalidateQueries({ queryKey: queryKeys.todayGoals() });
+      toast.success(vars.parentId ? "Sub-goal added" : "Goal added");
     },
   });
 }
@@ -421,7 +428,8 @@ interface UpdateGoalV2Payload {
     shape: GoalShape;
     weeklyTarget: number | null;
     totalTarget: number | null;
-    deadlineDate: string | null;
+    endDate: string | null;
+    startDate: string | null;
     status: GoalStatus;
     categoryId: string | null;
     parentId: string | null;
@@ -454,6 +462,11 @@ export function useUpdateGoalV2() {
         qc.invalidateQueries({ queryKey: queryKeys.subGoals(vars.parentId) });
       }
       qc.invalidateQueries({ queryKey: queryKeys.todayGoals() });
+      // Status-only changes get a tailored toast; everything else is generic.
+      if (vars.patch.status === "completed") toast.success("Goal completed");
+      else if (vars.patch.status === "paused") toast.show("Goal paused");
+      else if (vars.patch.status === "active") toast.show("Goal resumed");
+      else toast.show("Saved");
     },
   });
 }
@@ -468,6 +481,7 @@ export function useDeleteGoalV2() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.goals() });
       qc.invalidateQueries({ queryKey: queryKeys.todayGoals() });
+      toast.saffron("Goal archived");
     },
   });
 }

@@ -86,8 +86,8 @@ export async function observeNudges(userId: string): Promise<Nudge[]> {
         shape: goals.shape,
         weeklyTarget: goals.weeklyTarget,
         totalTarget: goals.totalTarget,
-        deadlineDate: goals.deadlineDate,
-        startedDate: goals.startedDate,
+        endDate: goals.endDate,
+        startDate: goals.startDate,
       })
       .from(goals)
       .where(and(eq(goals.userId, userId), eq(goals.status, "active"))),
@@ -271,8 +271,8 @@ export async function observeNudges(userId: string): Promise<Nudge[]> {
 
   // ── RULE: By-date deadline approaching ──
   for (const g of activeGoals) {
-    if (g.shape !== "by_date" || !g.deadlineDate || !g.totalTarget) continue;
-    const daysLeft = daysBetween(today, g.deadlineDate);
+    if (g.shape !== "by_date" || !g.endDate || !g.totalTarget) continue;
+    const daysLeft = daysBetween(today, g.endDate);
     if (daysLeft < 0) continue; // already past
     const total = (logsByGoal.get(g.id) ?? []).reduce(
       (s, l) => s + (l.value || 0),

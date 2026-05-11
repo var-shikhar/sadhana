@@ -30,7 +30,7 @@ const SETTINGS_ITEMS: Array<{
   },
   {
     href: "/categories",
-    label: "Categories",
+    label: "Goal Categories",
     description: "Optional labels for grouping your goals.",
   },
 ];

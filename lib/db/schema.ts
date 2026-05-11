@@ -71,6 +71,10 @@ export const goalStatusEnum = pgEnum("goal_status", [
   "paused",
   "completed",
   "abandoned",
+  // Goal whose start_date is in the future. Auto-promoted to 'active' by
+  // the goals API on read once start_date <= today. Doesn't appear in Plan
+  // / Today's Practice and doesn't accrue streaks while scheduled.
+  "scheduled",
 ]);
 export const goalSourceEnum = pgEnum("goal_source", [
   "user",
@@ -547,12 +551,16 @@ export const goals = pgTable("goals", {
   // shape-specific
   weeklyTarget: integer("weekly_target"),
   totalTarget: integer("total_target"),
-  deadlineDate: date("deadline_date"),
   // common
   source: goalSourceEnum("source").notNull().default("user"),
   status: goalStatusEnum("status").notNull().default("active"),
-  startedDate: date("started_date").notNull(),
   completedDate: date("completed_date"),
+  // Lifecycle window. startDate gates whether the goal is active or
+  // scheduled. endDate is the optional finish line for ANY cadence. The
+  // DB-side default is CURRENT_DATE (set in migration 0007) but the app
+  // always supplies startDate explicitly on insert.
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -571,8 +579,8 @@ export const goalLogs = pgTable("goal_logs", {
 /**
  * Audit trail of goal lifecycle changes. One row per tracked-field change
  * on PATCH (status, horizon, shape, title, category_id, parent_id,
- * deadline_date) plus a "created" row on POST. `reason` is user-supplied,
- * surfaced in the UI only for status changes today.
+ * start_date, end_date) plus a "created" row on POST. `reason` is
+ * user-supplied, surfaced in the UI only for status changes today.
  */
 export const goalHistory = pgTable(
   "goal_history",

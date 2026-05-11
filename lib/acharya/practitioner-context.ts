@@ -106,7 +106,7 @@ export async function buildPractitionerSnapshot(
           shape: goals.shape,
           weeklyTarget: goals.weeklyTarget,
           totalTarget: goals.totalTarget,
-          deadlineDate: goals.deadlineDate,
+          endDate: goals.endDate,
           categoryTitle: categories.title,
         })
         .from(goals)

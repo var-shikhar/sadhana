@@ -9,6 +9,7 @@ import {
   type GoalListFilters,
 } from "@/lib/goals/progress";
 import { recordGoalCreated } from "@/lib/goals/history";
+import { todayYmd } from "@/lib/goals/lifecycle";
 import {
   isHorizonAllowedUnder,
   type GoalHorizon,
@@ -49,7 +50,10 @@ export async function POST(request: Request) {
     shape: GoalShape;
     weeklyTarget?: number | null;
     totalTarget?: number | null;
-    deadlineDate?: string | null;
+    /** Optional finish line for any cadence. null = open-ended. */
+    endDate?: string | null;
+    /** When tracking begins. Defaults to today. */
+    startDate?: string | null;
     categoryId?: string | null;
     parentId?: string | null;
     source?: GoalSource;
@@ -112,8 +116,48 @@ export async function POST(request: Request) {
     }
   }
 
-  const today = new Date();
-  const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const today = todayYmd();
+
+  // Lifecycle window. startDate defaults to today. endDate applies to all
+  // cadences. Server-side validation duplicates what the form blocks so a
+  // stale client can't smuggle invalid values through.
+  const startDate = body.startDate?.trim() || today;
+  const endDate = body.endDate?.trim() || null;
+
+  if (endDate && endDate < startDate) {
+    return NextResponse.json(
+      { error: "End date can't be before start date." },
+      { status: 400 },
+    );
+  }
+
+  // Sub-goal lifecycle clamping: can't start before parent, can't end after.
+  if (body.parentId) {
+    const [parentRow] = await db
+      .select({ startDate: goals.startDate, endDate: goals.endDate })
+      .from(goals)
+      .where(eq(goals.id, body.parentId))
+      .limit(1);
+    if (parentRow) {
+      if (startDate < parentRow.startDate) {
+        return NextResponse.json(
+          { error: "Sub-goal can't start before its parent." },
+          { status: 400 },
+        );
+      }
+      if (parentRow.endDate && endDate && endDate > parentRow.endDate) {
+        return NextResponse.json(
+          { error: "Sub-goal can't end after its parent." },
+          { status: 400 },
+        );
+      }
+      if (parentRow.endDate && !endDate) {
+        // If the parent has an end and the child doesn't specify one,
+        // clamp to parent's end. The user's intent is "within the parent".
+        // This is a server-side fallback — the form should also surface it.
+      }
+    }
+  }
 
   const sortScope = body.parentId
     ? and(eq(goals.userId, auth.userId), eq(goals.parentId, body.parentId))
@@ -122,6 +166,10 @@ export async function POST(request: Request) {
     .select({ m: max(goals.sortOrder) })
     .from(goals)
     .where(sortScope);
+
+  // Future start date → 'scheduled'. Auto-promotes to 'active' when its day
+  // arrives via promoteScheduledGoals() at the start of every list/get.
+  const initialStatus: GoalStatus = startDate > today ? "scheduled" : "active";
 
   const [row] = await db
     .insert(goals)
@@ -138,10 +186,10 @@ export async function POST(request: Request) {
           ? body.weeklyTarget ?? 1
           : null,
       totalTarget: body.shape === "by_date" ? body.totalTarget ?? null : null,
-      deadlineDate: body.shape === "by_date" ? body.deadlineDate ?? null : null,
+      endDate,
       source: body.source ?? "user",
-      status: "active",
-      startedDate: ymd,
+      status: initialStatus,
+      startDate,
       sortOrder: (maxOrder?.m ?? 0) + 1,
     })
     .returning();

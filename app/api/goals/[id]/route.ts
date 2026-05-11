@@ -40,7 +40,10 @@ export async function PATCH(
     shape: GoalShape;
     weeklyTarget: number | null;
     totalTarget: number | null;
-    deadlineDate: string | null;
+    /** Optional finish line for any cadence. */
+    endDate: string | null;
+    /** When tracking begins; future value puts the goal in 'scheduled'. */
+    startDate: string | null;
     status: GoalStatus;
     categoryId: string | null;
     parentId: string | null;
@@ -67,7 +70,8 @@ export async function PATCH(
   if (typeof body.shape === "string") updates.shape = body.shape;
   if (body.weeklyTarget !== undefined) updates.weeklyTarget = body.weeklyTarget;
   if (body.totalTarget !== undefined) updates.totalTarget = body.totalTarget;
-  if (body.deadlineDate !== undefined) updates.deadlineDate = body.deadlineDate;
+  if (body.endDate !== undefined) updates.endDate = body.endDate;
+  if (typeof body.startDate === "string") updates.startDate = body.startDate;
   if (typeof body.status === "string") updates.status = body.status;
   if (typeof body.sortOrder === "number") updates.sortOrder = body.sortOrder;
   if (body.categoryId !== undefined) updates.categoryId = body.categoryId;

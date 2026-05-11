@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { Toaster } from "@/components/layout/Toaster";
 import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -31,6 +32,7 @@ export default async function AppLayout({
     <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <main className="mx-auto max-w-lg px-4 py-6">{children}</main>
       <BottomNav />
+      <Toaster />
     </div>
   );
 }

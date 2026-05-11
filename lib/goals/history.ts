@@ -10,7 +10,8 @@ const TRACKED_FIELDS = [
   "title",
   "categoryId",
   "parentId",
-  "deadlineDate",
+  "endDate",
+  "startDate",
 ] as const;
 
 type TrackedField = (typeof TRACKED_FIELDS)[number];
@@ -23,7 +24,8 @@ const FIELD_TO_TYPE: Record<TrackedField, string> = {
   title: "title",
   categoryId: "category",
   parentId: "parent",
-  deadlineDate: "deadline",
+  endDate: "end",
+  startDate: "start",
 };
 
 function dbHistoryToType(

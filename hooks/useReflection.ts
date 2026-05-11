@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Reflection, type PitfallTag } from "@/types";
 import { todayDate } from "@/lib/utils";
 import { queryKeys } from "@/lib/query-keys";
+import { toast } from "@/lib/stores/toast";
 
 async function fetchReflection(date: string): Promise<Reflection | null> {
   const res = await fetch(`/api/reflections?date=${date}`);
@@ -108,6 +109,12 @@ export function useSubmitReflection() {
       if (ctx?.previous !== undefined) {
         qc.setQueryData(queryKeys.reflectionByDate(date), ctx.previous);
       }
+    },
+    onSuccess: (_d, _v, ctx) => {
+      // ctx.previous is null on the first save of the day, populated when
+      // the user re-edits an already-sealed reflection.
+      const isUpdate = ctx?.previous != null;
+      toast.success(isUpdate ? "Reflection updated" : "Reflection sealed");
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: queryKeys.reflectionByDate(date) });

@@ -1,13 +1,18 @@
 "use client"
 
+import Link from "next/link"
+import { useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { Reflection, ChipCategory } from "@/types"
 import { CHIP_CATEGORY_META, CHIP_CATEGORY_ORDER } from "@/types"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
 import { ButtonBare } from "@/components/ui/button"
+import { GrowthOrbit } from "@/components/gurukul/GrowthOrbit"
 import { DaySummary } from "./DaySummary"
 import { useCounselStore } from "@/lib/stores/counsel"
+import { useGrowthHistory } from "@/hooks/useGrowthIndex"
+import { format, subDays } from "date-fns"
 
 interface ReflectionCompleteProps {
   reflection: Reflection
@@ -224,6 +229,10 @@ export function ReflectionComplete({
       {/* Day summary */}
       <DaySummary value={summary} onChange={() => {}} readOnly />
 
+      {/* Inline practice summary — slimmed Viveka preview, with a link out
+          to the full /analytics page for the deeper view. */}
+      <PracticeSummaryPreview />
+
       {/* Footer actions */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
         <p className="font-lyric-italic text-[12px] text-earth-mid">
@@ -237,6 +246,98 @@ export function ReflectionComplete({
           Speak with the Acharya →
         </ButtonBare>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Slimmed-down Viveka summary shown inline on the sealed reflect page.
+ * This is the "after submission" surface — the user has just closed the
+ * day, and we want to give them a glance at the week's orbit before they
+ * move on. The full analytics view lives at /analytics; we link there
+ * with a clear affordance rather than duplicating every chart inline.
+ */
+function PracticeSummaryPreview() {
+  const today = format(new Date(), "yyyy-MM-dd")
+  const thirtyDaysAgo = format(subDays(new Date(), 30), "yyyy-MM-dd")
+  const { scores, loading } = useGrowthHistory(thirtyDaysAgo, today)
+
+  const { habitRatio, reflectionRatio, weekScore } = useMemo(() => {
+    const last7 = scores.slice(-7)
+    if (last7.length === 0) {
+      return { habitRatio: 0, reflectionRatio: 0, weekScore: 0 }
+    }
+    const totalCompletion = last7.reduce(
+      (sum, s) => sum + (s.completionPts || 0),
+      0,
+    )
+    const habitRatio = Math.min(1, totalCompletion / (last7.length * 50))
+    const reflectionDays = last7.filter(
+      (s) => (s.reflectionPts || 0) > 0,
+    ).length
+    const reflectionRatio = reflectionDays / last7.length
+    const weekScore = last7.reduce((sum, s) => sum + (s.dailyScore || 0), 0)
+    return { habitRatio, reflectionRatio, weekScore }
+  }, [scores])
+
+  return (
+    <div className="rounded-md border border-gold/30 bg-ivory/60 p-4 space-y-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <LabelTiny>This week&apos;s practice</LabelTiny>
+          <p className="font-lyric-italic text-[11px] text-earth-mid mt-0.5">
+            A glance — the full Viveka view is one tap away.
+          </p>
+        </div>
+        <Link
+          href="/analytics"
+          className="font-pressure-caps text-[10px] text-saffron underline-offset-4 hover:underline shrink-0"
+        >
+          See full summary →
+        </Link>
+      </div>
+
+      {loading ? (
+        <p className="font-lyric-italic text-[11px] text-earth-mid text-center py-4">
+          Loading…
+        </p>
+      ) : (
+        <div className="flex items-center gap-4">
+          <GrowthOrbit
+            habitRatio={habitRatio}
+            reflectionRatio={reflectionRatio}
+            size="sm"
+            level={habitRatio > 0.5 ? "active" : "steady"}
+          />
+          <div className="flex-1 space-y-1.5">
+            <SummaryStat
+              label="Habits"
+              value={`${Math.round(habitRatio * 100)}%`}
+            />
+            <SummaryStat
+              label="Reflections"
+              value={`${Math.round(reflectionRatio * 100)}%`}
+            />
+            <SummaryStat
+              label="Week score"
+              value={`${Math.round(weekScore)} pts`}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="font-pressure-caps text-[9px] text-earth-mid tracking-wider">
+        {label}
+      </span>
+      <span className="font-lyric text-[14px] text-ink tabular-nums">
+        {value}
+      </span>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
+import { toast } from "@/lib/stores/toast";
 import type { Affirmation, AffirmationLanguage } from "@/types";
 
 async function fetchAffirmations(): Promise<Affirmation[]> {
@@ -78,6 +79,7 @@ export function useCreateAffirmation() {
         );
         return [...filtered, real];
       });
+      toast.success("Affirmation added");
     },
   });
 }
@@ -134,6 +136,13 @@ export function useUpdateAffirmation() {
         qc.setQueryData(queryKeys.affirmations(), ctx.previous);
       }
     },
+    onSuccess: (_data, vars) => {
+      // Pause toggle is the most common edit — call it out specifically.
+      // For everything else (text/language/order edits), stay quiet — the
+      // user just saw their change in the form.
+      if (vars.isActive === true) toast.show("Affirmation resumed");
+      else if (vars.isActive === false) toast.show("Affirmation paused");
+    },
   });
 }
 
@@ -156,6 +165,9 @@ export function useDeleteAffirmation() {
       if (ctx?.previous !== undefined) {
         qc.setQueryData(queryKeys.affirmations(), ctx.previous);
       }
+    },
+    onSuccess: () => {
+      toast.saffron("Affirmation removed");
     },
   });
 }

@@ -34,7 +34,8 @@ export async function POST(
     horizon?: GoalHorizon;
     weeklyTarget?: number | null;
     totalTarget?: number | null;
-    deadlineDate?: string | null;
+    endDate?: string | null;
+    startDate?: string | null;
     source?: GoalSource;
   };
 
@@ -81,10 +82,10 @@ export async function POST(
           ? body.weeklyTarget ?? 1
           : null,
       totalTarget: body.shape === "by_date" ? body.totalTarget ?? null : null,
-      deadlineDate: body.shape === "by_date" ? body.deadlineDate ?? null : null,
+      endDate: body.endDate ?? null,
       source: body.source ?? "user",
       status: "active",
-      startedDate: ymd,
+      startDate: body.startDate?.trim() || ymd,
       sortOrder: (maxOrder?.m ?? 0) + 1,
     })
     .returning();

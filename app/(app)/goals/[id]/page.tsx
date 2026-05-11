@@ -27,6 +27,15 @@ import {
   type GoalStatus,
   type GoalWithProgress,
 } from "@/types"
+import {
+  allowedSubShapesFor,
+  formatHumanDate,
+  formatRelativeFromToday,
+  lifecyclePhaseOf,
+  suggestedEndDate,
+  todayYmd,
+  type LifecyclePhase,
+} from "@/lib/goals/lifecycle"
 import { GoalFormModal } from "../page"
 
 type Params = { id: string }
@@ -60,6 +69,10 @@ export default function GoalDetailPage({
   const [statusReason, setStatusReason] = useState("")
   const [logsOpen, setLogsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  // Sub-tabs: Tasks gets default focus; sub-goals lives behind a tab so the
+  // Eisenhower matrix is the spotlight on the detail page.
+  const [tab, setTab] = useState<"tasks" | "subgoals">("tasks")
 
   const categoryTitle = useMemo(() => {
     const catId = goal?.categoryId
@@ -105,9 +118,9 @@ export default function GoalDetailPage({
     setStatusReason("")
   }
 
-  async function handleDelete() {
-    if (!confirm("Archive this goal? You can restore it later via filters.")) return
+  async function handleArchiveConfirmed() {
     await remove.mutateAsync(id)
+    setArchiveOpen(false)
     router.push("/goals")
   }
 
@@ -132,8 +145,10 @@ export default function GoalDetailPage({
     )
   }
 
+  const phase = lifecyclePhaseOf(goal)
+
   return (
-    <div className="space-y-6 py-2">
+    <div className="space-y-6 py-2 pb-28">
       {/* ── Back link ───────────────────────────────────────────── */}
       <Link
         href="/goals"
@@ -167,13 +182,24 @@ export default function GoalDetailPage({
           </p>
         )}
         <div className="flex items-center gap-1.5 flex-wrap">
+          <LifecycleBadge phase={phase} />
           <Badge tone="earth">{GOAL_SHAPE_LABEL[goal.shape]}</Badge>
           {categoryTitle && <Badge tone="sage">{categoryTitle}</Badge>}
-          <Badge tone="muted">{goal.status}</Badge>
-          {goal.deadlineDate && (
-            <Badge tone="muted">by {goal.deadlineDate}</Badge>
+          {goal.endDate && (
+            <Badge tone="muted">ends {goal.endDate}</Badge>
           )}
         </div>
+
+        {/* Lifecycle hint — readable line spelling out start/end. */}
+        <p className="font-lyric-italic text-[11px] text-earth-mid">
+          {phase === "scheduled"
+            ? `Starts ${formatRelativeFromToday(goal.startDate)} · ${formatHumanDate(goal.startDate)}`
+            : phase === "overdue"
+              ? `Window ended ${goal.endDate ? formatRelativeFromToday(goal.endDate) : ""}`
+              : phase === "due_soon" && goal.endDate
+                ? `Ends ${formatRelativeFromToday(goal.endDate)} · ${formatHumanDate(goal.endDate)}`
+                : `Started ${formatHumanDate(goal.startDate)}${goal.endDate ? ` · ends ${formatHumanDate(goal.endDate)}` : ""}`}
+        </p>
 
         {/* Inline meta toggles — expand logs / history right here. */}
         {(logs.length > 0 || history.length > 0) && (
@@ -260,109 +286,151 @@ export default function GoalDetailPage({
 
       <GoldRule width="section" />
 
-      {/* ── Quick-log + status actions ──────────────────────────── */}
-      <section className="space-y-3">
-        <LabelTiny className="block">Today</LabelTiny>
-        <QuickLogStrip goal={goal} onLog={() => void quickLogToggle(goal)} />
-
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {goal.status === "active" ? (
-            <>
-              <ButtonBare
-                type="button"
-                onClick={() => setStatusModalOpen("paused")}
-                className="rounded-full border border-gold/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-earth-deep hover:bg-ivory-deep"
-              >
-                Pause
-              </ButtonBare>
-              <ButtonBare
-                type="button"
-                onClick={() => void changeStatus("completed", null)}
-                className="rounded-full border border-sage/50 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-sage hover:bg-ivory-deep"
-              >
-                Complete
-              </ButtonBare>
-              <ButtonBare
-                type="button"
-                onClick={handleDelete}
-                className="rounded-full border border-saffron/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-saffron hover:bg-ivory-deep"
-              >
-                Archive
-              </ButtonBare>
-            </>
-          ) : goal.status === "paused" ? (
+      {/* ── Status actions (lifecycle controls) ─────────────────── */}
+      <section className="flex flex-wrap gap-1.5">
+        {goal.status === "active" || goal.status === "scheduled" ? (
+          <>
             <ButtonBare
               type="button"
-              onClick={() => void changeStatus("active", null)}
-              className="rounded-full border border-saffron/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-saffron hover:bg-ivory-deep"
+              onClick={() => setStatusModalOpen("paused")}
+              className="rounded-full border border-gold/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-earth-deep hover:bg-ivory-deep"
             >
-              Resume
+              Pause
             </ButtonBare>
-          ) : null}
-        </div>
+            <ButtonBare
+              type="button"
+              onClick={() => void changeStatus("completed", null)}
+              className="rounded-full border border-sage/50 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-sage hover:bg-ivory-deep"
+            >
+              Complete
+            </ButtonBare>
+            <ButtonBare
+              type="button"
+              onClick={() => setArchiveOpen(true)}
+              className="rounded-full border border-saffron/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-saffron hover:bg-ivory-deep ml-auto"
+            >
+              Archive
+            </ButtonBare>
+          </>
+        ) : goal.status === "paused" ? (
+          <ButtonBare
+            type="button"
+            onClick={() => void changeStatus("active", null)}
+            className="rounded-full border border-saffron/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-saffron hover:bg-ivory-deep"
+          >
+            Resume
+          </ButtonBare>
+        ) : null}
       </section>
 
-      <GoldRule width="section" />
-
-      {/* ── Sub-goals ──────────────────────────────────────────── */}
-      {!goal.parentId && (
-        <>
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <LabelTiny>Sub-tasks</LabelTiny>
+      {/* ── Tabs ─────────────────────────────────────────────────── */}
+      {!goal.parentId ? (
+        <div
+          className="inline-flex w-full rounded-full border border-gold/40 bg-ivory p-0.5"
+          role="tablist"
+          aria-label="Goal sections"
+        >
+          {(["tasks", "subgoals"] as const).map((t) => {
+            const active = tab === t
+            const label = t === "tasks" ? "Tasks" : `Sub-goals${subGoals.length ? ` · ${subGoals.length}` : ""}`
+            return (
               <ButtonBare
+                key={t}
                 type="button"
-                onClick={() => setAddSubOpen(true)}
-                className="text-[10px] font-pressure-caps tracking-wider text-saffron hover:underline"
+                onClick={() => setTab(t)}
+                role="tab"
+                aria-selected={active}
+                className={cn(
+                  "flex-1 rounded-full px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider transition-colors",
+                  active
+                    ? "bg-ink text-ivory"
+                    : "text-earth-deep hover:bg-ivory-deep",
+                )}
               >
-                + Add sub-task
+                {label}
               </ButtonBare>
-            </div>
+            )
+          })}
+        </div>
+      ) : null}
 
-            {subGoals.length === 0 ? (
-              <p className="font-lyric-italic text-[12px] text-earth-mid">
-                No sub-tasks yet. Break this goal into smaller pieces.
-              </p>
-            ) : (
-              <ul className="rounded-md border border-gold/30 bg-ivory-deep divide-y divide-gold/20 overflow-hidden">
-                {subGoals.map((s) => (
-                  <li
-                    key={s.id}
-                    className="hover:bg-ivory transition-colors"
+      {/* ── Tab body ─────────────────────────────────────────────── */}
+      {!goal.parentId && tab === "subgoals" ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-end">
+            <ButtonBare
+              type="button"
+              onClick={() => setAddSubOpen(true)}
+              className="text-[10px] font-pressure-caps tracking-wider text-saffron hover:underline"
+            >
+              + Add sub-goal
+            </ButtonBare>
+          </div>
+
+          {subGoals.length === 0 ? (
+            <p className="font-lyric-italic text-[12px] text-earth-mid py-6 text-center">
+              No sub-goals yet. Break this goal into smaller pieces.
+            </p>
+          ) : (
+            <ul className="rounded-md border border-gold/30 bg-ivory-deep divide-y divide-gold/20 overflow-hidden">
+              {subGoals.map((s) => (
+                <li
+                  key={s.id}
+                  className="hover:bg-ivory transition-colors"
+                >
+                  <Link
+                    href={`/goals/${s.id}`}
+                    className="block px-3 py-2.5 space-y-1"
                   >
-                    <Link
-                      href={`/goals/${s.id}`}
-                      className="block px-3 py-2.5 space-y-1"
+                    <p
+                      className={cn(
+                        "font-lyric text-[14px]",
+                        s.status === "active"
+                          ? "text-ink"
+                          : "text-earth-mid line-through",
+                      )}
                     >
-                      <p
-                        className={cn(
-                          "font-lyric text-[14px]",
-                          s.status === "active"
-                            ? "text-ink"
-                            : "text-earth-mid line-through",
-                        )}
-                      >
-                        {s.title}
-                      </p>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge tone="earth">{GOAL_SHAPE_LABEL[s.shape]}</Badge>
-                        {s.status !== "active" && (
-                          <Badge tone="muted">{s.status}</Badge>
-                        )}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <GoldRule width="section" />
-        </>
+                      {s.title}
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge tone="earth">{GOAL_SHAPE_LABEL[s.shape]}</Badge>
+                      {s.status !== "active" && (
+                        <Badge tone="muted">{s.status}</Badge>
+                      )}
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : (
+        // Default: Tasks (always shown for sub-goals; default tab for parents).
+        <TaskMatrix goalId={goal.id} />
       )}
 
-      {/* ── Tasks (Eisenhower) ────────────────────────────────── */}
-      <TaskMatrix goalId={goal.id} />
+      {/* ── Sticky daily quick-log bar ──────────────────────────────
+          Only meaningful for active or scheduled goals. Sits above the
+          global BottomNav (~64px) and respects iOS safe area. */}
+      {(goal.status === "active" || goal.status === "scheduled") && (
+        <div
+          className="fixed left-0 right-0 z-40 border-t border-gold/30 bg-ivory/95 backdrop-blur supports-backdrop-filter:bg-ivory/80"
+          style={{ bottom: "calc(64px + env(safe-area-inset-bottom))" }}
+        >
+          <div className="mx-auto max-w-lg px-3 py-2">
+            <QuickLogStrip
+              goal={goal}
+              onLog={() => void quickLogToggle(goal)}
+              disabled={phase === "scheduled"}
+              disabledReason={
+                phase === "scheduled"
+                  ? `Starts ${formatRelativeFromToday(goal.startDate)}`
+                  : undefined
+              }
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Add sub-task modal ─────────────────────────────────── */}
       {addSubOpen && (
@@ -370,6 +438,9 @@ export default function GoalDetailPage({
           mode="add"
           parentId={goal.id}
           parentHorizon={goal.horizon}
+          parentShape={goal.shape}
+          parentStartDate={goal.startDate}
+          parentEndDate={goal.endDate}
           defaultCategoryId={goal.categoryId}
           onClose={() => setAddSubOpen(false)}
         />
@@ -382,6 +453,57 @@ export default function GoalDetailPage({
           onClose={() => setEditOpen(false)}
         />
       )}
+
+      {/* ── Archive confirm modal (replaces native confirm()) ───── */}
+      {archiveOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Archive goal"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-saffron/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200"
+            >
+              <div className="space-y-1">
+                <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-saffron">
+                  Archive this goal?
+                </h3>
+                <p className="font-lyric-italic text-[12px] text-earth-deep">
+                  &ldquo;{goal.title}&rdquo; will be hidden from active lists. Its
+                  history, logs, and sub-goals are preserved.
+                </p>
+                <p className="font-lyric-italic text-[11px] text-earth-mid pt-1">
+                  You can restore it later by switching the Status filter on
+                  the Goals page to <span className="font-pressure-caps tracking-wider">All</span>.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <ButtonBare
+                  type="button"
+                  onClick={() => setArchiveOpen(false)}
+                  disabled={remove.isPending}
+                  className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep px-3 py-1.5"
+                >
+                  Cancel
+                </ButtonBare>
+                <ButtonBare
+                  type="button"
+                  onClick={() => void handleArchiveConfirmed()}
+                  disabled={remove.isPending}
+                  className="text-[10px] font-pressure-caps tracking-wider bg-saffron text-ivory rounded-md px-3 py-1.5 disabled:opacity-50"
+                >
+                  {remove.isPending ? "Archiving…" : "Archive"}
+                </ButtonBare>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* ── Status-change reason modal ─────────────────────────── */}
       {statusModalOpen &&
@@ -447,10 +569,21 @@ export default function GoalDetailPage({
 function QuickLogStrip({
   goal,
   onLog,
+  disabled = false,
+  disabledReason,
 }: {
   goal: GoalWithProgress
   onLog: () => void
+  disabled?: boolean
+  disabledReason?: string
 }) {
+  if (disabled) {
+    return (
+      <Button disabled className="w-full" variant="outline">
+        {disabledReason ?? "Not yet active"}
+      </Button>
+    )
+  }
   if (goal.shape === "daily") {
     const done = goal.progress.todayDone
     return (
@@ -480,6 +613,32 @@ function QuickLogStrip({
   )
 }
 
+// ─── Lifecycle badge ──────────────────────────────────────────────────────
+
+const LIFECYCLE_TONE: Record<LifecyclePhase, { cls: string; label: string }> = {
+  in_flight:  { cls: "border-sage/50 text-sage",       label: "In flight" },
+  scheduled:  { cls: "border-gold/50 text-earth-deep", label: "Scheduled" },
+  due_soon:   { cls: "border-saffron/60 text-saffron", label: "Due soon" },
+  overdue:    { cls: "border-saffron text-saffron bg-saffron/10", label: "Overdue" },
+  paused:     { cls: "border-earth-mid/40 text-earth-mid", label: "Paused" },
+  completed:  { cls: "border-sage/40 text-sage",       label: "Completed" },
+  abandoned:  { cls: "border-earth-mid/30 text-earth-mid/70", label: "Archived" },
+}
+
+function LifecycleBadge({ phase }: { phase: LifecyclePhase }) {
+  const t = LIFECYCLE_TONE[phase]
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-2 py-0.5 font-pressure-caps tracking-wider text-[9px]",
+        t.cls,
+      )}
+    >
+      {t.label}
+    </span>
+  )
+}
+
 // ─── Edit goal modal ──────────────────────────────────────────────────────
 
 function EditGoalModal({
@@ -491,13 +650,28 @@ function EditGoalModal({
 }) {
   const update = useUpdateGoalV2()
   const { categories } = useCategories()
+  // Parent's lifecycle window (sub-goals only) — fetched lazily so we can
+  // clamp the end date and constrain the cadence picker the same way the
+  // create modal does.
+  const { goal: parentGoal } = useGoal(goal.parentId ?? "")
+
+  const today = todayYmd()
+  const isSubGoal = !!goal.parentId
+  const parentShape = parentGoal?.shape
+  const parentEndDate = parentGoal?.endDate ?? null
+  const parentStartDate = parentGoal?.startDate
+
+  const allowedShapes = isSubGoal && parentShape
+    ? allowedSubShapesFor(parentShape)
+    : GOAL_SHAPES
 
   const [title, setTitle] = useState(goal.title)
   const [description, setDescription] = useState(goal.description ?? "")
   const [shape, setShape] = useState<GoalShape>(goal.shape)
   const [weeklyTarget, setWeeklyTarget] = useState(goal.weeklyTarget ?? 3)
   const [totalTarget, setTotalTarget] = useState(goal.totalTarget ?? 10)
-  const [deadlineDate, setDeadlineDate] = useState(goal.deadlineDate ?? "")
+  const [startDate, setStartDate] = useState(goal.startDate ?? today)
+  const [endDate, setEndDate] = useState(goal.endDate ?? "")
   const [categoryId, setCategoryId] = useState<string | null>(goal.categoryId)
   const [error, setError] = useState<string | null>(null)
 
@@ -509,10 +683,26 @@ function EditGoalModal({
     }
   }, [])
 
+  const derivedEndDate = endDate || (
+    shape === "by_date" ? null : suggestedEndDate(shape, startDate)
+  )
+
   async function commit() {
     const t = title.trim()
     if (!t) return
     setError(null)
+    if (endDate && endDate < startDate) {
+      setError("End date can't be before start date.")
+      return
+    }
+    if (isSubGoal && parentEndDate && endDate && endDate > parentEndDate) {
+      setError(`Sub-goal must end by ${formatHumanDate(parentEndDate)} (parent's end).`)
+      return
+    }
+    if (isSubGoal && parentStartDate && startDate < parentStartDate) {
+      setError(`Sub-goal can't start before ${formatHumanDate(parentStartDate)} (parent's start).`)
+      return
+    }
     try {
       await update.mutateAsync({
         goalId: goal.id,
@@ -523,8 +713,12 @@ function EditGoalModal({
           weeklyTarget:
             shape === "weekly" || shape === "monthly" ? weeklyTarget : null,
           totalTarget: shape === "by_date" ? totalTarget : null,
-          deadlineDate: shape === "by_date" ? deadlineDate || null : null,
-          categoryId,
+          // endDate now applies to all cadences. Empty string → null
+          // (open-ended) for recurring; required at submit-time for by_date.
+          endDate: endDate || null,
+          startDate,
+          // Sub-goals inherit category — don't update it from this form.
+          ...(isSubGoal ? {} : { categoryId }),
         },
         parentId: goal.parentId,
       })
@@ -573,22 +767,37 @@ function EditGoalModal({
         <div className="space-y-1.5">
           <label className="label-tiny block">Cadence</label>
           <div className="flex gap-1.5 flex-wrap">
-            {GOAL_SHAPES.map((s) => (
-              <ButtonBare
-                key={s}
-                type="button"
-                onClick={() => setShape(s)}
-                className={cn(
-                  "flex-1 min-w-[70px] rounded-full px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider transition-all border",
-                  shape === s
-                    ? "bg-ink text-ivory border-ink"
-                    : "bg-ivory text-earth-deep border-gold/30 hover:bg-ivory-deep",
-                )}
-              >
-                {GOAL_SHAPE_LABEL[s]}
-              </ButtonBare>
-            ))}
+            {GOAL_SHAPES.map((s) => {
+              const isAllowed = allowedShapes.includes(s)
+              return (
+                <ButtonBare
+                  key={s}
+                  type="button"
+                  onClick={() => isAllowed && setShape(s)}
+                  disabled={!isAllowed}
+                  title={
+                    !isAllowed
+                      ? `Parent is ${GOAL_SHAPE_LABEL[parentShape ?? "daily"]} — sub-goals can't outlast it.`
+                      : undefined
+                  }
+                  className={cn(
+                    "flex-1 min-w-[70px] rounded-full px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider transition-all border",
+                    shape === s
+                      ? "bg-ink text-ivory border-ink"
+                      : "bg-ivory text-earth-deep border-gold/30 hover:bg-ivory-deep",
+                    !isAllowed && "opacity-30 cursor-not-allowed hover:bg-ivory",
+                  )}
+                >
+                  {GOAL_SHAPE_LABEL[s]}
+                </ButtonBare>
+              )
+            })}
           </div>
+          {isSubGoal && parentShape && allowedShapes.length < GOAL_SHAPES.length && (
+            <p className="font-lyric-italic text-[10px] text-earth-mid">
+              Sub-goal can&apos;t outlast its {GOAL_SHAPE_LABEL[parentShape].toLowerCase()} parent.
+            </p>
+          )}
         </div>
 
         {(shape === "weekly" || shape === "monthly") && (
@@ -609,46 +818,79 @@ function EditGoalModal({
         )}
 
         {shape === "by_date" && (
-          <>
-            <div className="space-y-1.5">
-              <label className="label-tiny block">Total target</label>
-              <input
-                type="number"
-                min={1}
-                value={totalTarget}
-                onChange={(e) =>
-                  setTotalTarget(Math.max(1, Number(e.target.value) || 1))
-                }
-                className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="label-tiny block">Deadline</label>
-              <input
-                type="date"
-                value={deadlineDate}
-                onChange={(e) => setDeadlineDate(e.target.value)}
-                className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
-              />
-            </div>
-          </>
+          <div className="space-y-1.5">
+            <label className="label-tiny block">Total target</label>
+            <input
+              type="number"
+              min={1}
+              value={totalTarget}
+              onChange={(e) =>
+                setTotalTarget(Math.max(1, Number(e.target.value) || 1))
+              }
+              className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
+            />
+          </div>
         )}
 
-        <div className="space-y-1.5">
-          <label className="label-tiny block">Category</label>
-          <select
-            value={categoryId ?? ""}
-            onChange={(e) => setCategoryId(e.target.value || null)}
-            className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40 cursor-pointer"
-          >
-            <option value="">— No category —</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <label className="label-tiny block">Start date</label>
+            <input
+              type="date"
+              value={startDate}
+              min={isSubGoal ? parentStartDate : undefined}
+              onChange={(e) => setStartDate(e.target.value || today)}
+              className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="label-tiny block">
+              End date {shape !== "by_date" && <span className="text-earth-mid/60">(optional)</span>}
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              min={startDate}
+              max={isSubGoal && parentEndDate ? parentEndDate : undefined}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
+            />
+          </div>
         </div>
+
+        {(startDate || derivedEndDate) && (
+          <p className="font-lyric-italic text-[11px] text-earth-deep -mt-1">
+            {startDate > today
+              ? `Scheduled — starts ${formatRelativeFromToday(startDate)} (${formatHumanDate(startDate)})`
+              : `Starts ${formatHumanDate(startDate)}`}
+            {derivedEndDate && (
+              <>
+                {" · "}
+                <span className={endDate ? "text-earth-deep" : "text-earth-mid"}>
+                  {endDate ? "Ends" : "Suggested end:"} {formatHumanDate(derivedEndDate)}
+                </span>
+              </>
+            )}
+          </p>
+        )}
+
+        {!isSubGoal && (
+          <div className="space-y-1.5">
+            <label className="label-tiny block">Goal Category</label>
+            <select
+              value={categoryId ?? ""}
+              onChange={(e) => setCategoryId(e.target.value || null)}
+              className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40 cursor-pointer"
+            >
+              <option value="">— No category —</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {error && (
           <p className="text-[11px] text-saffron font-lyric-italic">

@@ -96,7 +96,7 @@ export async function getWeekSummary(userId: string): Promise<WeekSummary> {
       source: goals.source,
       weeklyTarget: goals.weeklyTarget,
       totalTarget: goals.totalTarget,
-      deadlineDate: goals.deadlineDate,
+      endDate: goals.endDate,
       categoryTitle: categories.title,
       categoryColor: categories.color,
       categorySortOrder: categories.sortOrder,
@@ -235,11 +235,11 @@ export async function getWeekSummary(userId: string): Promise<WeekSummary> {
     // by_date — just show this week's contribution + total + days left
     const weekTotal = totalsByGoal.get(r.id) ?? 0;
     const target = r.totalTarget ?? 1;
-    const daysRemaining = r.deadlineDate
+    const daysRemaining = r.endDate
       ? Math.max(
           0,
           Math.round(
-            (new Date(r.deadlineDate + "T00:00:00").getTime() -
+            (new Date(r.endDate + "T00:00:00").getTime() -
               new Date(today + "T00:00:00").getTime()) /
               86_400_000
           )

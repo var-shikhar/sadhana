@@ -79,6 +79,16 @@ export function useVoiceInput(
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
+  // Latest callbacks live in refs so the recognition instance is built ONCE,
+  // not rebuilt on every parent render. Rebuilding mid-utterance dropped
+  // words and broke the affirmation-matching loop.
+  const onFinalRef = useRef(onFinalText);
+  const onInterimRef = useRef(onInterimText);
+  useEffect(() => {
+    onFinalRef.current = onFinalText;
+    onInterimRef.current = onInterimText;
+  }, [onFinalText, onInterimText]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const Ctor =
@@ -109,11 +119,11 @@ export function useVoiceInput(
       }
       if (interimText) {
         setInterim(interimText);
-        onInterimText?.(interimText);
+        onInterimRef.current?.(interimText);
       }
       if (finalText) {
         setInterim("");
-        onFinalText?.(finalText.trim());
+        onFinalRef.current?.(finalText.trim());
       }
     };
     r.onerror = (e) => {
@@ -142,7 +152,16 @@ export function useVoiceInput(
       }
       recognitionRef.current = null;
     };
-  }, [lang, onFinalText, onInterimText]);
+    // Build once per mount. `lang` is applied in-place by the effect below
+    // so we don't tear down recognition just to switch languages.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Apply language changes in-place; takes effect on the next start().
+  useEffect(() => {
+    const r = recognitionRef.current;
+    if (r) r.lang = lang;
+  }, [lang]);
 
   const start = useCallback(() => {
     const r = recognitionRef.current;

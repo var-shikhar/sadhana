@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
+import { toast } from "@/lib/stores/toast";
 import type { Task, TaskStatus } from "@/types";
 
 async function fetchTasks(goalId: string): Promise<Task[]> {
@@ -88,6 +89,7 @@ export function useCreateTask() {
         );
         return [...filtered, real];
       });
+      toast.success("Task added");
     },
   });
 }
@@ -145,6 +147,13 @@ export function useUpdateTask() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous !== undefined) qc.setQueryData(ctx.key, ctx.previous);
     },
+    onSuccess: (_real, vars) => {
+      // Quiet for non-status patches (drag-to-reclassify, edits) — only
+      // surface a toast when the user explicitly completes / re-opens a
+      // task. Drag-to-reclassify is its own visual feedback (the card moves).
+      if (vars.patch.status === "done") toast.success("Task completed");
+      else if (vars.patch.status === "open") toast.show("Task reopened");
+    },
   });
 }
 
@@ -171,6 +180,9 @@ export function useDeleteTask() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous !== undefined) qc.setQueryData(ctx.key, ctx.previous);
+    },
+    onSuccess: () => {
+      toast.saffron("Task deleted");
     },
   });
 }

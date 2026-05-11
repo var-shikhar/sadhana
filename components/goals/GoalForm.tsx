@@ -16,7 +16,7 @@ interface GoalFormProps {
     shape: GoalShape;
     weeklyTarget: number | null;
     totalTarget: number | null;
-    deadlineDate: string | null;
+    endDate: string | null;
   }) => void | Promise<void>;
   onCancel?: () => void;
   submitting?: boolean;
@@ -39,8 +39,8 @@ export function GoalForm({
   const [totalTarget, setTotalTarget] = useState<number>(
     initial?.totalTarget ?? 12
   );
-  const [deadlineDate, setDeadlineDate] = useState<string>(
-    initial?.deadlineDate ?? ""
+  const [endDate, setEndDate] = useState<string>(
+    initial?.endDate ?? ""
   );
 
   // If parent passes a fresh initial after mount, sync (used for edit-mode)
@@ -53,8 +53,8 @@ export function GoalForm({
       setWeeklyTarget(initial.weeklyTarget);
     if (initial?.totalTarget !== undefined && initial.totalTarget !== null)
       setTotalTarget(initial.totalTarget);
-    if (initial?.deadlineDate !== undefined && initial.deadlineDate !== null)
-      setDeadlineDate(initial.deadlineDate);
+    if (initial?.endDate !== undefined && initial.endDate !== null)
+      setEndDate(initial.endDate);
   }, [initial]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -67,7 +67,7 @@ export function GoalForm({
       shape,
       weeklyTarget: shape === "weekly" ? weeklyTarget : null,
       totalTarget: shape === "by_date" ? totalTarget : null,
-      deadlineDate: shape === "by_date" ? deadlineDate || null : null,
+      endDate: shape === "by_date" ? endDate || null : null,
     });
   }
 
@@ -75,7 +75,7 @@ export function GoalForm({
     !!shape &&
     !!title.trim() &&
     (shape !== "weekly" || weeklyTarget > 0) &&
-    (shape !== "by_date" || (totalTarget > 0 && deadlineDate));
+    (shape !== "by_date" || (totalTarget > 0 && endDate));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -144,8 +144,8 @@ export function GoalForm({
             <LabelTiny>By when?</LabelTiny>
             <Input
               type="date"
-              value={deadlineDate}
-              onChange={(e) => setDeadlineDate(e.target.value)}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
               className="bg-ivory border-gold/40"
               required
             />

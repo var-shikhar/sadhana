@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: "home" },
-  { href: "/goals", label: "Plan", icon: "grid" },
+  { href: "/plan", label: "Plan", icon: "calendar-check" },
+  { href: "/goals", label: "Goals", icon: "grid" },
   { href: "/counsel", label: "Counsel", icon: "lotus" },
   { href: "/reflect", label: "Reflect", icon: "feather" },
-  { href: "/analytics", label: "Viveka", icon: "bar-chart-2" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
 
@@ -62,6 +62,12 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
         <rect x="14" y="3" width="7" height="7" rx="1.5" />
         <rect x="3" y="14" width="7" height="7" rx="1.5" />
         <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+    "calendar-check": (
+      <svg className={cn("h-5 w-5", color)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <rect x="3" y="4" width="18" height="17" rx="2" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9h18M8 3v3M16 3v3M9 15l2 2 4-4" />
       </svg>
     ),
   };

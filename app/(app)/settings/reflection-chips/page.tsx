@@ -452,10 +452,13 @@ export default function ReflectionChipsSettingsPage() {
 
       {/* ── Library — filters + flat list ── */}
       <section className="space-y-3">
-        {/* Single unified filter bar: label · category pills · gold hairline · group select */}
-        <div className="flex items-center justify-between gap-3">
-          <LabelTiny className="shrink-0">Your acts</LabelTiny>
+        {/* Section title sits on its own line, centered. The filter row
+            below justifies to the end so the controls anchor to the right
+            edge — matches how the rest of the gurukul surfaces use a
+            centered heading + right-anchored controls. */}
+        <LabelTiny className="block text-center">Your acts</LabelTiny>
 
+        <div className="flex items-center justify-end gap-3">
           <div className="flex gap-1.5 min-w-0 flex-1 justify-end flex-wrap items-center">
             {/* Category pill group — compact */}
             <div className="flex flex-wrap rounded-full border border-gold/40 bg-ivory p-0.5 shadow-[0_1px_2px_rgba(196,106,31,0.05)] shrink-0">

@@ -20,7 +20,10 @@ import { SamapanaCard } from "@/components/gurukul/SamapanaCard";
 import { NudgeStack } from "@/components/gurukul/NudgeStack";
 import { TodayGoalsPanel } from "@/components/goals/TodayGoalsPanel";
 import { KolamGrid } from "@/components/ornament/KolamGrid";
+import { GrowthOrbit } from "@/components/gurukul/GrowthOrbit";
+import { useGrowthHistory } from "@/hooks/useGrowthIndex";
 import { VRATA_LENGTHS } from "@/types";
+import { format, subDays } from "date-fns";
 
 function greetingForHour(hour: number): string {
   if (hour < 12) return "The day waits for you.";
@@ -185,6 +188,11 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* Slim weekly progress preview — Viveka in miniature, with a link
+          to the full view. Surfaces here so the user sees how the week is
+          shaping without having to navigate to /analytics. */}
+      <HomeProgressStrip />
+
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3">
         <Link
@@ -200,6 +208,76 @@ export default function HomePage() {
           {!hasReflected ? "Reflect" : "View Reflection"}
         </Link>
       </div>
+    </div>
+  );
+}
+
+function HomeProgressStrip() {
+  const today = format(new Date(), "yyyy-MM-dd");
+  const sevenDaysAgo = format(subDays(new Date(), 7), "yyyy-MM-dd");
+  const { scores, loading } = useGrowthHistory(sevenDaysAgo, today);
+
+  if (loading || scores.length === 0) return null;
+
+  const totalCompletion = scores.reduce(
+    (sum, s) => sum + (s.completionPts || 0),
+    0,
+  );
+  const habitRatio = Math.min(1, totalCompletion / (scores.length * 50));
+  const reflectionDays = scores.filter(
+    (s) => (s.reflectionPts || 0) > 0,
+  ).length;
+  const reflectionRatio = reflectionDays / scores.length;
+  const weekScore = scores.reduce((sum, s) => sum + (s.dailyScore || 0), 0);
+
+  return (
+    <section className="rounded-md border border-gold/30 bg-ivory-deep p-4 space-y-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <LabelTiny>This week&apos;s practice</LabelTiny>
+        <Link
+          href="/analytics"
+          className="font-pressure-caps text-[10px] text-saffron underline-offset-4 hover:underline"
+        >
+          See full summary →
+        </Link>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="w-28 shrink-0">
+          <GrowthOrbit
+            habitRatio={habitRatio}
+            reflectionRatio={reflectionRatio}
+            size="sm"
+            level={habitRatio > 0.5 ? "active" : "steady"}
+          />
+        </div>
+        <div className="flex-1 space-y-1">
+          <ProgressLine
+            label="Habits"
+            value={`${Math.round(habitRatio * 100)}%`}
+          />
+          <ProgressLine
+            label="Reflections"
+            value={`${Math.round(reflectionRatio * 100)}%`}
+          />
+          <ProgressLine
+            label="Week score"
+            value={`${Math.round(weekScore)} pts`}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProgressLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="font-pressure-caps text-[9px] text-earth-mid tracking-wider">
+        {label}
+      </span>
+      <span className="font-lyric text-[14px] text-ink tabular-nums">
+        {value}
+      </span>
     </div>
   );
 }

@@ -384,9 +384,17 @@ function DraggableTaskCard({
     disabled: task.status === "done",
   })
 
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform), touchAction: "none" }
-    : undefined
+  // touch-action MUST be set before the user touches the card, not after
+  // the drag has already started. If it's only applied with the transform
+  // (mid-drag), iOS/Android claim the initial touch for scrolling and
+  // @dnd-kit's TouchSensor never sees the activation through. Setting it
+  // unconditionally tells the browser "this element will not pan/zoom" so
+  // the long-press activation (200ms) can land. The inner buttons still
+  // get tap events because activation requires sustained touch.
+  const style: React.CSSProperties = {
+    touchAction: "none",
+    ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
+  }
 
   return (
     <div

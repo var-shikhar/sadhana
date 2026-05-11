@@ -366,9 +366,24 @@ export const STARTER_CATEGORIES: Array<{
 
 // ── Goals (top-level; category is an optional label) ──
 export type GoalShape = "daily" | "weekly" | "monthly" | "by_date";
-export type GoalStatus = "active" | "paused" | "completed" | "abandoned";
+export type GoalStatus =
+  | "active"
+  | "paused"
+  | "completed"
+  | "abandoned"
+  // Goal whose start_date is in the future. Auto-promoted to 'active'
+  // by the goals API on read once start_date <= today.
+  | "scheduled";
 export type GoalSource = "user" | "suggestion";
 export type GoalHorizon = "short_term" | "medium_term" | "long_term";
+
+export const GOAL_STATUS_LABEL: Record<GoalStatus, string> = {
+  active: "Active",
+  scheduled: "Scheduled",
+  paused: "Paused",
+  completed: "Completed",
+  abandoned: "Abandoned",
+};
 
 export const GOAL_HORIZONS: GoalHorizon[] = [
   "short_term",
@@ -466,11 +481,16 @@ export interface Goal {
   shape: GoalShape;
   weeklyTarget: number | null;
   totalTarget: number | null;
-  deadlineDate: string | null;
   source: GoalSource;
   status: GoalStatus;
-  startedDate: string;
   completedDate: string | null;
+  /** When tracking begins. Goals with a future startDate are 'scheduled'. */
+  startDate: string;
+  /**
+   * Optional finish line. Applies to ALL cadences — recurring goals
+   * (daily/weekly/monthly) can also be bounded. null means open-ended.
+   */
+  endDate: string | null;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;

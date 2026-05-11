@@ -44,12 +44,11 @@ export default function AffirmationsPracticePage() {
   const currentLang = current?.language ?? "en-US";
 
   // ── Voice ──
+  // Only finals are matched against the affirmation; interim transcript is
+  // surfaced via voice.interim for the "Heard" preview, not via a callback.
   const voice = useVoiceInput({
     lang: currentLang,
     onFinalText: handleFinalText,
-    onInterimText: () => {
-      // we don't append interim into heardRef; only finals count for matching
-    },
   });
 
   function handleFinalText(final: string) {
