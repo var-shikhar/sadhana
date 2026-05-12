@@ -657,3 +657,28 @@ export const vrataSlips = pgTable(
   },
   (table) => [unique().on(table.vrataId, table.date)]
 );
+
+// ── Voice Counsel — per-call usage tracking ──────────────────────────────
+// One row per voice call. Used to enforce the per-day minute cap
+// (MAX_DAILY_SECONDS) and to keep a minimal audit trail. The transcript
+// itself is NOT stored server-side; it lives in localStorage via the
+// useCounselStore (same posture as text Counsel).
+export const voiceSessionUsage = pgTable(
+  "voice_session_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    callId: text("call_id").notNull().unique(),
+    userId: text("user_id").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    durationSec: integer("duration_sec").notNull().default(0),
+    personaId: text("persona_id").notNull(),
+    language: text("language").notNull(),
+    brokeCharacter: boolean("broke_character").notNull().default(false),
+  },
+  (t) => [
+    index("voice_session_usage_user_started_idx").on(t.userId, t.startedAt),
+  ]
+);

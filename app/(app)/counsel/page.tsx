@@ -9,6 +9,7 @@ import { MessageBubble } from "@/components/counsel/MessageBubble";
 import { ThinkingIndicator } from "@/components/counsel/ThinkingIndicator";
 import { SourcesModal } from "@/components/counsel/SourcesModal";
 import { MicButton } from "@/components/counsel/MicButton";
+import { CallEntryButton } from "@/components/counsel/CallEntryButton";
 import { useGuruQuery } from "@/hooks/useGuruQuery";
 import { useCounselStore } from "@/lib/stores/counsel";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -105,23 +106,26 @@ export default function CounselPage() {
           "radial-gradient(ellipse at top, rgba(43,24,16,0.6) 0%, transparent 70%), radial-gradient(ellipse at bottom, rgba(26,18,8,1) 0%, rgba(13,6,4,1) 100%)",
       }}
     >
-      {/* Top bar — minimal: back arrow · OM · clear */}
+      {/* Top bar — minimal: back arrow · call · OM · clear */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-earth-deep/40 backdrop-blur-sm">
-        <Link
-          href="/"
-          className="text-parchment/60 hover:text-saffron transition-colors flex items-center justify-center w-9 h-9 rounded-full"
-          aria-label="Back to home"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="2"
+        <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="text-parchment/60 hover:text-saffron transition-colors flex items-center justify-center w-9 h-9 rounded-full"
+            aria-label="Back to home"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <CallEntryButton />
+        </div>
         <div className="flex items-center justify-center">
           <OmGlyph size={22} tone="saffron" />
         </div>

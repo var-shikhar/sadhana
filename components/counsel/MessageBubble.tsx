@@ -42,6 +42,18 @@ function tokenizeAnswer(text: string): Array<
   return out;
 }
 
+function VoiceTag({ durationSec }: { durationSec?: number }) {
+  if (durationSec == null) return null;
+  const m = Math.floor(durationSec / 60);
+  const s = durationSec % 60;
+  const fmt = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return (
+    <span className="text-[10px] font-lyric-italic text-parchment/40 tracking-wide">
+      ✦ from voice · {fmt}
+    </span>
+  );
+}
+
 export function MessageBubble({
   message,
   onOpenSources,
@@ -52,10 +64,15 @@ export function MessageBubble({
 
   if (message.role === "user") {
     return (
-      <div className="flex justify-end animate-bubble-in">
+      <div className="flex flex-col items-end animate-bubble-in">
         <div className="max-w-[78%] rounded-2xl rounded-tr-sm bg-saffron text-ivory px-4 py-2.5 shadow-sm">
           <p className="font-lyric text-base leading-snug">{message.text}</p>
         </div>
+        {message.via === "voice" && (
+          <div className="mt-1 pr-1">
+            <VoiceTag durationSec={message.durationSec} />
+          </div>
+        )}
         <style>{`
           @keyframes bubble-in {
             from { opacity: 0; transform: translateY(6px); }
@@ -161,6 +178,9 @@ export function MessageBubble({
               else speak.speak(stripCitationsForSpeech(message.text));
             }}
           />
+          {message.via === "voice" && (
+            <VoiceTag durationSec={message.durationSec} />
+          )}
         </div>
       </div>
 

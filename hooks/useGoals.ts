@@ -82,7 +82,11 @@ interface UpdateGoalPayload {
     weeklyTarget: number | null;
     totalTarget: number | null;
     endDate: string | null;
-    startDate: string | null;
+    // startDate is non-nullable on the Goal type — patches may omit it
+    // (Partial) but never null it. Keeping this as `string` lets us spread
+    // the patch onto a cached GoalWithProgress without widening the
+    // resulting type to `string | null`.
+    startDate: string;
     status: GoalStatus;
     sortOrder: number;
   }>;
@@ -429,7 +433,8 @@ interface UpdateGoalV2Payload {
     weeklyTarget: number | null;
     totalTarget: number | null;
     endDate: string | null;
-    startDate: string | null;
+    // Non-nullable on Goal — patches can omit but never null it.
+    startDate: string;
     status: GoalStatus;
     categoryId: string | null;
     parentId: string | null;

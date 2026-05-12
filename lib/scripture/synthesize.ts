@@ -1,4 +1,8 @@
 import type { RetrievedVerse } from "./retrieve"
+import {
+  detectsCrisis,
+  CRISIS_RESPONSE_EN as CRISIS_RESPONSE,
+} from "@/lib/safety/crisis-patterns"
 
 /**
  * The Acharya speaks in the voice of Krishna to Arjuna — grounded ENTIRELY
@@ -125,34 +129,6 @@ function validateCitations(
 
   return { cleaned, citationsUsed: Array.from(citationsUsed) }
 }
-
-/**
- * Crude crisis-keyword check. Triggers a "break character" plain-English
- * response from the Acharya per the safety rule. The model is also told
- * about this in the system prompt; this is a belt-and-suspenders backup.
- */
-const CRISIS_PATTERNS = [
-  /\bsuicid/i,
-  /\bkill\s+myself/i,
-  /\bend\s+(my\s+)?life/i,
-  /\bharm\s+myself/i,
-  /\bcutting\b/i,
-  /\babuse(d)?\s+by/i,
-  /\bbeaten\s+by/i,
-  /\bcan'?t\s+go\s+on\b/i,
-]
-
-function detectsCrisis(text: string): boolean {
-  return CRISIS_PATTERNS.some((rx) => rx.test(text))
-}
-
-const CRISIS_RESPONSE = `What you are carrying is beyond what these texts — or I — can hold alone. Please reach a real person today.
-
-In India: **iCall** at 9152987821, or **AASRA** at 91-22-27546669. Both are free, confidential, and answer in your language.
-
-Outside India: a local crisis line, your doctor, or a trusted friend. Even one phone call.
-
-The Acharya will be here when you return. The path is not going anywhere.`
 
 export async function synthesizeAnswer(
   input: SynthesisInput,
