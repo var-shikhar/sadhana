@@ -10,6 +10,7 @@ import { LabelTiny } from "@/components/gurukul/LabelTiny"
 import { GoldRule } from "@/components/gurukul/GoldRule"
 import { cn } from "@/lib/utils"
 import {
+  useAllGoals,
   useDeleteGoalV2,
   useGoal,
   useGoalHistory,
@@ -19,6 +20,7 @@ import {
 } from "@/hooks/useGoals"
 import { useCategories } from "@/hooks/useCategories"
 import { TaskMatrix } from "@/components/tasks/TaskMatrix"
+import { MilestonesPanel } from "@/components/goals/MilestonesPanel"
 import { queryKeys } from "@/lib/query-keys"
 import {
   GOAL_SHAPES,
@@ -32,6 +34,7 @@ import {
   formatHumanDate,
   formatRelativeFromToday,
   lifecyclePhaseOf,
+  QuestActivationConflictError,
   suggestedEndDate,
   todayYmd,
   type LifecyclePhase,
@@ -70,15 +73,38 @@ export default function GoalDetailPage({
   const [logsOpen, setLogsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
-  // Sub-tabs: Tasks gets default focus; sub-goals lives behind a tab so the
-  // Eisenhower matrix is the spotlight on the detail page.
-  const [tab, setTab] = useState<"tasks" | "subgoals">("tasks")
+  // When set, we're showing the activation-cap conflict modal. `pendingStatus`
+  // is what the user originally tried to apply (typically "active"); after
+  // they pick a quest to pause, we'll retry that transition.
+  const [activationConflict, setActivationConflict] = useState<{
+    pendingStatus: GoalStatus
+    pendingReason: string | null
+    activeIds: string[]
+  } | null>(null)
+  // Sub-tabs:
+  //   • Quests: Milestones (default) — the journey + tasks-inside-milestones
+  //   • Disciplines: Tasks (default) — flat Eisenhower matrix
+  //   • Either: Sub-goals (only if any exist — legacy transition surface)
+  const [tab, setTab] = useState<"tasks" | "milestones" | "subgoals">(
+    "tasks", // overridden below after goal loads
+  )
 
   const categoryTitle = useMemo(() => {
     const catId = goal?.categoryId
     if (!catId) return null
     return categories.find((c) => c.id === catId)?.title ?? null
   }, [goal, categories])
+
+  // Quests default to the Milestones tab; disciplines default to Tasks.
+  // Only set on initial load — don't snap back if the user navigates away
+  // intentionally.
+  const isQuest = goal?.goalType === "quest"
+  useEffect(() => {
+    if (!goal) return
+    setTab(isQuest ? "milestones" : "tasks")
+    // intentionally only react to goal id / type
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goal?.id, isQuest])
 
   // Today log toggle for daily goals.
   async function quickLogToggle(g: GoalWithProgress) {
@@ -109,13 +135,28 @@ export default function GoalDetailPage({
   }
 
   async function changeStatus(next: GoalStatus, reason: string | null) {
-    await update.mutateAsync({
-      goalId: id,
-      patch: { status: next, reason: reason?.trim() || null },
-      parentId: goal?.parentId ?? null,
-    })
-    setStatusModalOpen(null)
-    setStatusReason("")
+    try {
+      await update.mutateAsync({
+        goalId: id,
+        patch: { status: next, reason: reason?.trim() || null },
+        parentId: goal?.parentId ?? null,
+      })
+      setStatusModalOpen(null)
+      setStatusReason("")
+    } catch (err) {
+      if (err instanceof QuestActivationConflictError) {
+        // The user tried to activate a quest while at their cap. Surface
+        // the "pause one to activate" modal; the retry happens after the
+        // user picks a quest to pause (see the modal's onPause handler).
+        setActivationConflict({
+          pendingStatus: next,
+          pendingReason: reason?.trim() || null,
+          activeIds: err.currentActiveQuestIds,
+        })
+        return
+      }
+      throw err
+    }
   }
 
   async function handleArchiveConfirmed() {
@@ -183,6 +224,9 @@ export default function GoalDetailPage({
         )}
         <div className="flex items-center gap-1.5 flex-wrap">
           <LifecycleBadge phase={phase} />
+          <Badge tone={isQuest ? "saffron" : "earth"}>
+            {isQuest ? "Quest" : "Discipline"}
+          </Badge>
           <Badge tone="earth">{GOAL_SHAPE_LABEL[goal.shape]}</Badge>
           {categoryTitle && <Badge tone="sage">{categoryTitle}</Badge>}
           {goal.endDate && (
@@ -323,16 +367,26 @@ export default function GoalDetailPage({
         ) : null}
       </section>
 
-      {/* ── Tabs ─────────────────────────────────────────────────── */}
+      {/* ── Tabs ───────────────────────────────────────────────────
+          Top-level goals only — sub-goals have no tabs. Tab set varies by
+          goal type: quests get Milestones + Tasks (flat tasks across all
+          milestones); disciplines get just Tasks. Sub-goals stays as a
+          transitional surface ONLY if existing sub-goal data is present. */}
       {!goal.parentId ? (
         <div
           className="inline-flex w-full rounded-full border border-gold/40 bg-ivory p-0.5"
           role="tablist"
           aria-label="Goal sections"
         >
-          {(["tasks", "subgoals"] as const).map((t) => {
+          {(isQuest
+            ? (["milestones", "tasks"] as const)
+            : (["tasks"] as const)
+          ).map((t) => {
             const active = tab === t
-            const label = t === "tasks" ? "Tasks" : `Sub-goals${subGoals.length ? ` · ${subGoals.length}` : ""}`
+            const label =
+              t === "milestones"
+                ? "Milestones"
+                : "Tasks"
             return (
               <ButtonBare
                 key={t}
@@ -351,6 +405,23 @@ export default function GoalDetailPage({
               </ButtonBare>
             )
           })}
+          {subGoals.length > 0 && (
+            <ButtonBare
+              key="subgoals"
+              type="button"
+              onClick={() => setTab("subgoals")}
+              role="tab"
+              aria-selected={tab === "subgoals"}
+              className={cn(
+                "flex-1 rounded-full px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider transition-colors",
+                tab === "subgoals"
+                  ? "bg-ink text-ivory"
+                  : "text-earth-deep hover:bg-ivory-deep",
+              )}
+            >
+              Sub-goals · {subGoals.length}
+            </ButtonBare>
+          )}
         </div>
       ) : null}
 
@@ -404,8 +475,11 @@ export default function GoalDetailPage({
             </ul>
           )}
         </section>
+      ) : !goal.parentId && tab === "milestones" && isQuest ? (
+        <MilestonesPanel goalId={goal.id} />
       ) : (
-        // Default: Tasks (always shown for sub-goals; default tab for parents).
+        // Default: Tasks. For disciplines this is the only view; for quests
+        // it's the flat list across all milestones.
         <TaskMatrix goalId={goal.id} />
       )}
 
@@ -451,6 +525,41 @@ export default function GoalDetailPage({
         <EditGoalModal
           goal={goal}
           onClose={() => setEditOpen(false)}
+        />
+      )}
+
+      {/* ── Activation-cap conflict modal ──
+          Shown when the user tries to activate a quest while already at
+          their max-active-quests cap. Lists the current active quests and
+          lets them pause one — after which we retry the original action. */}
+      {activationConflict && (
+        <ActivationConflictModal
+          conflict={activationConflict}
+          onClose={() => setActivationConflict(null)}
+          onPauseAndRetry={async (idToPause) => {
+            // Pause the chosen quest first, then retry the pending status
+            // change. We don't surface the inner conflict (there shouldn't
+            // be one after pausing) — if it happens, the user sees the
+            // modal again.
+            await update.mutateAsync({
+              goalId: idToPause,
+              patch: { status: "paused" },
+            })
+            const pending = activationConflict
+            setActivationConflict(null)
+            if (pending) {
+              await update.mutateAsync({
+                goalId: id,
+                patch: {
+                  status: pending.pendingStatus,
+                  reason: pending.pendingReason,
+                },
+                parentId: goal?.parentId ?? null,
+              })
+              setStatusModalOpen(null)
+              setStatusReason("")
+            }
+          }}
         />
       )}
 
@@ -913,6 +1022,129 @@ function EditGoalModal({
             className="text-[10px] font-pressure-caps tracking-wider bg-ink text-ivory rounded-md px-3 py-1.5 disabled:opacity-50"
           >
             {update.isPending ? "Saving…" : "Save"}
+          </ButtonBare>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Activation conflict modal ────────────────────────────────────────────
+
+function ActivationConflictModal({
+  conflict,
+  onClose,
+  onPauseAndRetry,
+}: {
+  conflict: {
+    pendingStatus: GoalStatus
+    pendingReason: string | null
+    activeIds: string[]
+  }
+  onClose: () => void
+  onPauseAndRetry: (idToPause: string) => Promise<void>
+}) {
+  // Pull the currently-active quests so we can show titles, not just IDs.
+  // We fetch by status=active and then filter to the conflict's ID list —
+  // this is slightly wasteful but reuses the existing query cache.
+  const { goals: activeGoals } = useAllGoals({ status: "active" })
+  const candidates = useMemo(
+    () =>
+      activeGoals.filter(
+        (g) => g.goalType === "quest" && conflict.activeIds.includes(g.id),
+      ),
+    [activeGoals, conflict.activeIds],
+  )
+
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
+  const [pausingId, setPausingId] = useState<string | null>(null)
+
+  if (typeof document === "undefined") return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pick a quest to pause"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-saffron/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200 max-h-[88vh] overflow-y-auto"
+      >
+        <div className="space-y-1">
+          <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-saffron">
+            Already running another quest
+          </h3>
+          <p className="font-lyric-italic text-[12px] text-earth-deep">
+            One quest at a time keeps the focus single-pointed. To activate
+            this one, pick a current quest to pause — its progress is
+            preserved.
+          </p>
+          <p className="font-lyric-italic text-[11px] text-earth-mid pt-1">
+            Want more quests running at once? Change the limit in{" "}
+            <Link
+              href="/settings/profile"
+              className="font-pressure-caps tracking-wider text-saffron hover:underline"
+            >
+              Settings → Practice
+            </Link>
+            .
+          </p>
+        </div>
+
+        {candidates.length === 0 ? (
+          <p className="font-lyric-italic text-[12px] text-earth-mid text-center py-4">
+            Loading active quests…
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {candidates.map((c) => (
+              <li key={c.id}>
+                <ButtonBare
+                  type="button"
+                  onClick={async () => {
+                    setPausingId(c.id)
+                    try {
+                      await onPauseAndRetry(c.id)
+                    } finally {
+                      setPausingId(null)
+                    }
+                  }}
+                  disabled={pausingId !== null}
+                  className={cn(
+                    "w-full rounded-md border border-gold/40 bg-ivory hover:bg-ivory-deep px-3 py-2.5 text-left transition-colors flex items-center justify-between gap-3",
+                    pausingId === c.id && "opacity-60",
+                  )}
+                >
+                  <span className="font-lyric text-[14px] text-ink min-w-0 truncate">
+                    {c.title}
+                  </span>
+                  <span className="font-pressure-caps text-[9px] text-saffron tracking-wider shrink-0">
+                    {pausingId === c.id ? "Pausing…" : "Pause → activate this"}
+                  </span>
+                </ButtonBare>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex justify-end pt-1">
+          <ButtonBare
+            type="button"
+            onClick={onClose}
+            disabled={pausingId !== null}
+            className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep px-3 py-1.5"
+          >
+            Cancel
           </ButtonBare>
         </div>
       </div>

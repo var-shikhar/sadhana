@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { OmPulse } from "./OmPulse";
+import { VoiceOrb } from "./VoiceOrb";
 import { CallStatus } from "./CallStatus";
 import { CallControls } from "./CallControls";
 import { CitationToastStack } from "./CitationToastStack";
@@ -309,10 +309,10 @@ export function CallScreen({ language }: CallScreenProps) {
       </header>
 
       <div className="flex-1 flex flex-col items-center justify-center gap-10 pb-32">
-        <OmPulse
+        <VoiceOrb
           remoteStream={remoteStream}
           localStream={localStream}
-          size={220}
+          size={320}
         />
         <CallStatus status={status} language={language} />
       </div>

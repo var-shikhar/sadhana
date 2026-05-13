@@ -3,6 +3,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { toast } from "@/lib/stores/toast";
+import {
+  QUEST_ACTIVATION_CONFLICT,
+  QuestActivationConflictError,
+} from "@/lib/goals/lifecycle";
 import type {
   Goal,
   GoalHistoryEntry,
@@ -10,6 +14,7 @@ import type {
   GoalShape,
   GoalSource,
   GoalStatus,
+  GoalType,
   GoalWithProgress,
 } from "@/types";
 import { GOAL_SUGGESTIONS } from "@/types";
@@ -380,6 +385,8 @@ interface CreateGoalV2Payload {
   description?: string | null;
   horizon?: GoalHorizon;
   shape: GoalShape;
+  /** Quest or discipline. Defaults inferred server-side if absent. */
+  goalType?: GoalType;
   weeklyTarget?: number | null;
   totalTarget?: number | null;
   /** Optional finish line for any cadence. null = open-ended. */
@@ -456,6 +463,14 @@ export function useUpdateGoalV2() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        // Surface the quest activation cap as a typed error so callers can
+        // render the "pick one to pause" modal instead of a generic toast.
+        if (res.status === 409 && data?.error === QUEST_ACTIVATION_CONFLICT) {
+          throw new QuestActivationConflictError({
+            max: data.max ?? 1,
+            currentActiveQuestIds: data.currentActiveQuestIds ?? [],
+          });
+        }
         throw new Error(data.error || "Failed to update goal");
       }
     },

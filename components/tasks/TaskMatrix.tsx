@@ -35,6 +35,15 @@ import { TaskFormModal } from "./TaskFormModal"
 
 interface TaskMatrixProps {
   goalId: string
+  /**
+   * Optional: scope this matrix to a single milestone of a quest goal.
+   * When set:
+   *   • only tasks whose milestoneId matches are shown,
+   *   • newly-created tasks are anchored to that milestone.
+   * When omitted (or null), the matrix shows all tasks of the goal — the
+   * old discipline-style behavior.
+   */
+  milestoneId?: string | null
 }
 
 /** Inverse of `quadrantOf` — the (important, urgent) flags for a quadrant. */
@@ -54,11 +63,19 @@ const QUADRANT_FLAGS: Record<
  * mark done. Completed tasks live behind a "View completed (today)" link
  * — they don't clutter the matrix.
  */
-export function TaskMatrix({ goalId }: TaskMatrixProps) {
-  const { tasks, loading } = useTasksByGoal(goalId)
+export function TaskMatrix({ goalId, milestoneId }: TaskMatrixProps) {
+  const { tasks: allTasks, loading } = useTasksByGoal(goalId)
   const create = useCreateTask()
   const update = useUpdateTask()
   const remove = useDeleteTask()
+
+  // Scope to milestone when one is provided. We filter client-side rather
+  // than adding a query param so cache invalidation stays simple — every
+  // task mutation invalidates the per-goal key once.
+  const tasks = useMemo(() => {
+    if (milestoneId === undefined) return allTasks
+    return allTasks.filter((t) => t.milestoneId === milestoneId)
+  }, [allTasks, milestoneId])
 
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -270,7 +287,11 @@ export function TaskMatrix({ goalId }: TaskMatrixProps) {
           mode="add"
           onClose={() => setAddOpen(false)}
           onSubmit={async (input) => {
-            await create.mutateAsync({ goalId, ...input })
+            await create.mutateAsync({
+              goalId,
+              milestoneId: milestoneId ?? null,
+              ...input,
+            })
           }}
           submitting={create.isPending}
         />

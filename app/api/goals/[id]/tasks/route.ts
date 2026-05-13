@@ -10,6 +10,7 @@ function dbToType(row: typeof tasks.$inferSelect): Task {
     id: row.id,
     userId: row.userId,
     goalId: row.goalId,
+    milestoneId: row.milestoneId,
     title: row.title,
     description: row.description,
     important: row.important,
@@ -81,6 +82,8 @@ export async function POST(
     description?: string | null;
     important?: boolean;
     urgent?: boolean;
+    /** For quest goals: anchor this task to a specific milestone. */
+    milestoneId?: string | null;
   };
 
   const title = body.title?.trim().slice(0, 120);
@@ -98,6 +101,7 @@ export async function POST(
     .values({
       userId: auth.userId,
       goalId,
+      milestoneId: body.milestoneId ?? null,
       title,
       description: body.description?.trim().slice(0, 600) || null,
       important: body.important ?? false,

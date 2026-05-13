@@ -196,6 +196,59 @@ export default function ProfileSettingsPage() {
         </ul>
       </section>
 
+      {/* ── Practice — quest concurrency ──
+          The single most opinionated setting in the app. Default of 1
+          gives the quest model its meaning; 2 or 3 trade focus for
+          parallel pursuit. */}
+      <section className="space-y-2">
+        <LabelTiny className="block">Practice</LabelTiny>
+        <div className="rounded-md border border-gold/30 bg-ivory-deep p-4 space-y-3">
+          <div className="space-y-0.5">
+            <p className="font-lyric text-[14px] text-ink">
+              Active quests at once
+            </p>
+            <p className="font-lyric-italic text-[11px] text-earth-mid">
+              The default — one — keeps your focus single-pointed. Two or
+              three lets parallel quests run, at the cost of attention.
+              Disciplines aren&apos;t affected; they always run together.
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            {[1, 2, 3].map((n) => {
+              const active = (profile?.maxActiveQuests ?? 1) === n
+              return (
+                <ButtonBare
+                  key={n}
+                  type="button"
+                  onClick={() =>
+                    void updateProfile.mutateAsync({ maxActiveQuests: n })
+                  }
+                  disabled={updateProfile.isPending || active}
+                  className={cn(
+                    "flex-1 rounded-md border px-3 py-2 text-center transition-colors",
+                    active
+                      ? "bg-ink text-ivory border-ink"
+                      : "bg-ivory text-earth-deep border-gold/40 hover:bg-ivory-deep",
+                  )}
+                >
+                  <span className="font-lyric text-[18px] block leading-none">
+                    {n}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-pressure-caps text-[9px] tracking-wider",
+                      active ? "text-ivory/80" : "text-earth-mid",
+                    )}
+                  >
+                    {n === 1 ? "focused" : n === 2 ? "split" : "scattered"}
+                  </span>
+                </ButtonBare>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* ── Habits ── */}
       <section className="space-y-2">
         <LabelTiny className="block">Habits</LabelTiny>

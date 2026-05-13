@@ -85,6 +85,14 @@ export const goalHorizonEnum = pgEnum("goal_horizon", [
   "medium_term",
   "long_term",
 ]);
+export const goalTypeEnum = pgEnum("goal_type", [
+  // Sequential, achievement-oriented. One active at a time by default.
+  // Carries milestones. Replaces what sub-goals + by_date used to be.
+  "quest",
+  // Recurring practice. Runs in parallel, always. No milestones — just
+  // cadence + streak. The bedrock the user keeps doing.
+  "discipline",
+]);
 export const taskStatusEnum = pgEnum("task_status", [
   "open",
   "done",
@@ -195,6 +203,10 @@ export const profiles = pgTable("profiles", {
   onboardingCompleted: boolean("onboarding_completed").default(false),
   morningReminderTime: time("morning_reminder_time").default("07:00"),
   eveningReminderTime: time("evening_reminder_time").default("21:00"),
+  // How many quests may be 'active' at the same time. 1 (default) is the
+  // focused mode that gives the quest model its meaning; 2 or 3 trades
+  // focus for parallel pursuit. DB constraint enforces the 1..3 range.
+  maxActiveQuests: integer("max_active_quests").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
@@ -548,6 +560,11 @@ export const goals = pgTable("goals", {
   description: text("description"),
   horizon: goalHorizonEnum("horizon").notNull().default("medium_term"),
   shape: goalShapeEnum("shape").notNull(),
+  // Quest (sequential, milestoned) vs Discipline (recurring, parallel).
+  // Default 'discipline' matches the safer behavior for new goals; the
+  // form picks the right type at creation time. by_date goals are
+  // auto-classified as quests by migration 0009 for existing rows.
+  goalType: goalTypeEnum("goal_type").notNull().default("discipline"),
   // shape-specific
   weeklyTarget: integer("weekly_target"),
   totalTarget: integer("total_target"),
@@ -598,10 +615,38 @@ export const goalHistory = pgTable(
 );
 
 /**
- * Discrete one-and-done action items under a goal or sub-goal. Lighter
- * than sub-goals (no logs, no history, no cadence). Classified by two
- * booleans (`important`, `urgent`) which together place a task in one of
- * four Eisenhower-matrix quadrants. Cascade delete from parent goal/sub.
+ * Ordered checkpoints along a quest's journey. Each milestone belongs to
+ * one quest goal. `target_value` is optional — many milestones are binary
+ * (first sale, draft complete) rather than quantitative ($10k, $100k).
+ * Disciplines don't have milestones.
+ */
+export const milestones = pgTable(
+  "milestones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    goalId: uuid("goal_id")
+      .notNull()
+      .references(() => goals.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    targetValue: integer("target_value"),
+    orderIndex: integer("order_index").notNull().default(0),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("milestones_goal_order_idx").on(table.goalId, table.orderIndex),
+  ],
+);
+
+/**
+ * Discrete one-and-done action items. Anchored to a goal (the existing
+ * relationship) and OPTIONALLY to a milestone (new — quest tasks live
+ * inside a milestone). Classified by `important` × `urgent` for the
+ * Eisenhower matrix. Cascade delete from the parent goal; when a
+ * milestone is deleted, its tasks fall back to the goal level (SET NULL).
  */
 export const tasks = pgTable(
   "tasks",
@@ -609,6 +654,9 @@ export const tasks = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: text("user_id").notNull(),
     goalId: uuid("goal_id").notNull(),
+    milestoneId: uuid("milestone_id").references(() => milestones.id, {
+      onDelete: "set null",
+    }),
     title: text("title").notNull(),
     description: text("description"),
     important: boolean("important").notNull().default(false),
@@ -622,6 +670,7 @@ export const tasks = pgTable(
   },
   (table) => [
     index("tasks_goal_status_idx").on(table.goalId, table.status),
+    index("tasks_milestone_idx").on(table.milestoneId),
     index("tasks_user_quadrant_idx").on(
       table.userId,
       table.important,

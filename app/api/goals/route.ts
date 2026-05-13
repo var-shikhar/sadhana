@@ -4,7 +4,9 @@ import { db } from "@/lib/db";
 import { goals, categories } from "@/lib/db/schema";
 import { and, eq, isNull, max } from "drizzle-orm";
 import {
+  countActiveQuests,
   dbGoalToType,
+  getMaxActiveQuests,
   listTopLevelGoals,
   type GoalListFilters,
 } from "@/lib/goals/progress";
@@ -16,6 +18,7 @@ import {
   type GoalShape,
   type GoalSource,
   type GoalStatus,
+  type GoalType,
 } from "@/types";
 
 /** GET /api/goals — list top-level goals, with optional filters. */
@@ -48,6 +51,8 @@ export async function POST(request: Request) {
     description?: string | null;
     horizon?: GoalHorizon;
     shape: GoalShape;
+    /** Quest or discipline. Defaults from shape if absent (by_date → quest). */
+    goalType?: GoalType;
     weeklyTarget?: number | null;
     totalTarget?: number | null;
     /** Optional finish line for any cadence. null = open-ended. */
@@ -68,6 +73,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid cadence" }, { status: 400 });
   }
   const horizon: GoalHorizon = body.horizon ?? "medium_term";
+
+  // Goal type. If the client doesn't specify, infer from shape: by_date
+  // implies quest; everything else implies discipline. The form picks
+  // explicitly, so this is mostly a defensive default.
+  const goalType: GoalType =
+    body.goalType ?? (body.shape === "by_date" ? "quest" : "discipline");
 
   // Sub-goal validation: parent must exist, belong to user, be top-level,
   // and the child's horizon must be ≤ parent's.
@@ -169,7 +180,21 @@ export async function POST(request: Request) {
 
   // Future start date → 'scheduled'. Auto-promotes to 'active' when its day
   // arrives via promoteScheduledGoals() at the start of every list/get.
-  const initialStatus: GoalStatus = startDate > today ? "scheduled" : "active";
+  let initialStatus: GoalStatus = startDate > today ? "scheduled" : "active";
+
+  // Quest activation cap: if the user is about to add a quest that would
+  // immediately go 'active' but they're already at maxActiveQuests, we
+  // demote this one to 'scheduled' instead. The form's submit guard
+  // catches this before we get here; this is the server-side safety.
+  if (goalType === "quest" && initialStatus === "active") {
+    const [max, current] = await Promise.all([
+      getMaxActiveQuests(auth.userId),
+      countActiveQuests(auth.userId),
+    ]);
+    if (current >= max) {
+      initialStatus = "scheduled";
+    }
+  }
 
   const [row] = await db
     .insert(goals)
@@ -181,6 +206,7 @@ export async function POST(request: Request) {
       description: body.description?.trim().slice(0, 240) || null,
       horizon,
       shape: body.shape,
+      goalType,
       weeklyTarget:
         body.shape === "weekly" || body.shape === "monthly"
           ? body.weeklyTarget ?? 1

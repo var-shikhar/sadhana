@@ -188,3 +188,36 @@ export function formatRelativeFromToday(ymdStr: string): string {
 export function isLiveStatus(status: GoalStatus): boolean {
   return status === "active" || status === "scheduled";
 }
+
+// ─── Quest activation conflict ──────────────────────────────────────────
+
+/**
+ * Returned by the goals API when an attempted activation would exceed the
+ * user's `maxActiveQuests`. The client catches this code and shows a modal
+ * letting the user pick one of `currentActiveQuestIds` to pause first.
+ */
+export const QUEST_ACTIVATION_CONFLICT = "quest_activation_conflict" as const;
+
+export interface QuestActivationConflict {
+  error: typeof QUEST_ACTIVATION_CONFLICT;
+  max: number;
+  currentActiveQuestIds: string[];
+}
+
+/**
+ * Thrown by `useUpdateGoalV2` when an activation attempt hits the
+ * maxActiveQuests cap. UI catches this specifically and renders the
+ * "which quest will you pause?" modal.
+ */
+export class QuestActivationConflictError extends Error {
+  readonly max: number;
+  readonly currentActiveQuestIds: string[];
+  constructor(detail: { max: number; currentActiveQuestIds: string[] }) {
+    super(
+      `Already at ${detail.max} active quest${detail.max === 1 ? "" : "s"}.`,
+    );
+    this.name = "QuestActivationConflictError";
+    this.max = detail.max;
+    this.currentActiveQuestIds = detail.currentActiveQuestIds;
+  }
+}

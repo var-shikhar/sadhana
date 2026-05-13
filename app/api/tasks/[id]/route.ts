@@ -10,6 +10,7 @@ function dbToType(row: typeof tasks.$inferSelect): Task {
     id: row.id,
     userId: row.userId,
     goalId: row.goalId,
+    milestoneId: row.milestoneId,
     title: row.title,
     description: row.description,
     important: row.important,
@@ -40,6 +41,8 @@ export async function PATCH(
     status: TaskStatus;
     completionNote: string | null;
     sortOrder: number;
+    /** Re-anchor a task to a different milestone (or null = goal-level). */
+    milestoneId: string | null;
   }>;
 
   // Read the existing row for status-transition logic.
@@ -60,6 +63,7 @@ export async function PATCH(
   if (typeof body.important === "boolean") updates.important = body.important;
   if (typeof body.urgent === "boolean") updates.urgent = body.urgent;
   if (typeof body.sortOrder === "number") updates.sortOrder = body.sortOrder;
+  if (body.milestoneId !== undefined) updates.milestoneId = body.milestoneId;
   if (body.completionNote !== undefined) {
     updates.completionNote =
       body.completionNote?.trim().slice(0, 600) || null;

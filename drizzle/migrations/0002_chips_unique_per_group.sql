@@ -14,6 +14,11 @@
 ALTER TABLE reflection_chips
   DROP CONSTRAINT IF EXISTS reflection_chips_user_name_unique;
 
-ALTER TABLE reflection_chips
-  ADD CONSTRAINT reflection_chips_user_name_group_unique
-  UNIQUE NULLS NOT DISTINCT (user_id, name, group_id);
+-- Idempotent add: only create the constraint if it doesn't exist yet.
+-- ADD CONSTRAINT has no IF NOT EXISTS form, so we guard with a DO block.
+DO $$ BEGIN
+  ALTER TABLE reflection_chips
+    ADD CONSTRAINT reflection_chips_user_name_group_unique
+    UNIQUE NULLS NOT DISTINCT (user_id, name, group_id);
+EXCEPTION WHEN duplicate_table THEN NULL;
+         WHEN duplicate_object THEN NULL; END $$;

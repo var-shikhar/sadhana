@@ -1,57 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWebSpeechInput } from "./useWebSpeechInput";
+import { useWhisperInput } from "./useWhisperInput";
 
 /**
- * Voice-to-text via the Web Speech API. Free, on-device, no API call.
- * Supported on Chrome / Edge / Safari (incl. mobile). Falls back gracefully
- * on Firefox (where the API isn't implemented) — `supported` will be false.
+ * Public voice-input hook. Tries the browser-native Web Speech API first
+ * (free, fast) and silently falls back to server-side Whisper when Web
+ * Speech is unavailable or blocked.
  *
- * For higher accuracy or non-supported browsers, we'd swap this for OpenAI
- * Whisper (~$0.006/min). Hook signature stays the same.
+ * Why the fallback exists:
+ *   - Brave strips Google's STT API keys → SpeechRecognition fires
+ *     `error: "network"` on every start. Same shape in Brave PWAs.
+ *   - Firefox doesn't ship SpeechRecognition at all.
+ *   - Some Chromium forks similarly block Google services.
+ *
+ * Once we observe a fatal Web Speech error for a given mount, we latch onto
+ * Whisper for the rest of the session — no point retrying a strategy the
+ * browser has already told us doesn't work.
  */
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-interface SpeechRecognitionResult {
-  isFinal: boolean;
-  0: SpeechRecognitionAlternative;
-  length: number;
-  item(index: number): SpeechRecognitionAlternative;
-}
-interface SpeechRecognitionResultList {
-  length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-interface SpeechRecognitionEventLike extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-interface SpeechRecognitionErrorEventLike extends Event {
-  error: string;
-  message?: string;
-}
-interface SpeechRecognitionInstance extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start(): void;
-  stop(): void;
-  abort(): void;
-  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((e: SpeechRecognitionErrorEventLike) => void) | null;
-  onend: (() => void) | null;
-  onstart: (() => void) | null;
-}
-type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
 
 interface UseVoiceInputOptions {
   /** Called every time a final phrase resolves. Append to your draft. */
   onFinalText?: (finalText: string) => void;
-  /** Called with interim transcript while the user is mid-sentence. */
+  /** Called with interim transcript while the user is mid-sentence.
+   *  Whisper path has no streaming interim — this only fires under Web Speech. */
   onInterimText?: (interim: string) => void;
   /** Language tag — "en-US", "hi-IN", "en-IN", etc. */
   lang?: string;
@@ -67,126 +40,74 @@ interface UseVoiceInputResult {
   error: string | null;
 }
 
+// Web Speech error codes that signal the strategy is unusable, not just
+// that this particular utterance failed. We switch to Whisper on these.
+const FATAL_WEB_SPEECH_ERRORS = new Set([
+  "network",
+  "service-not-allowed",
+  "language-not-supported",
+]);
+
 export function useVoiceInput(
   options: UseVoiceInputOptions = {}
 ): UseVoiceInputResult {
-  const { onFinalText, onInterimText, lang = "en-US" } = options;
+  const webSpeech = useWebSpeechInput(options);
+  const whisper = useWhisperInput(options);
 
-  const [supported, setSupported] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [interim, setInterim] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Sticky once flipped: prevents oscillation if Web Speech briefly recovers.
+  const [forceWhisper, setForceWhisper] = useState(false);
 
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  // Remember whether the user was actively trying to listen when Web Speech
+  // failed, so we can transparently restart on the Whisper side.
+  const wantedListeningRef = useRef(false);
 
-  // Latest callbacks live in refs so the recognition instance is built ONCE,
-  // not rebuilt on every parent render. Rebuilding mid-utterance dropped
-  // words and broke the affirmation-matching loop.
-  const onFinalRef = useRef(onFinalText);
-  const onInterimRef = useRef(onInterimText);
+  // Latch onto Whisper when Web Speech reports a fatal error.
   useEffect(() => {
-    onFinalRef.current = onFinalText;
-    onInterimRef.current = onInterimText;
-  }, [onFinalText, onInterimText]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const Ctor =
-      (window as unknown as { SpeechRecognition?: SpeechRecognitionCtor })
-        .SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionCtor })
-        .webkitSpeechRecognition;
-    if (!Ctor) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSupported(false);
-      return;
+    if (forceWhisper) return;
+    if (!webSpeech.error) return;
+    if (FATAL_WEB_SPEECH_ERRORS.has(webSpeech.error)) {
+      setForceWhisper(true);
+      if (wantedListeningRef.current) {
+        // Re-dispatch the user's "I want to be listening" through Whisper.
+        whisper.start();
+      }
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSupported(true);
-    const r = new Ctor();
-    r.continuous = false;
-    r.interimResults = true;
-    r.lang = lang;
+  }, [forceWhisper, webSpeech.error, whisper]);
 
-    r.onresult = (event) => {
-      let finalText = "";
-      let interimText = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const res = event.results[i];
-        const transcript = res[0]?.transcript ?? "";
-        if (res.isFinal) finalText += transcript;
-        else interimText += transcript;
-      }
-      if (interimText) {
-        setInterim(interimText);
-        onInterimRef.current?.(interimText);
-      }
-      if (finalText) {
-        setInterim("");
-        onFinalRef.current?.(finalText.trim());
-      }
-    };
-    r.onerror = (e) => {
-      // 'no-speech', 'aborted', 'not-allowed', 'audio-capture'…
-      if (e.error !== "aborted") {
-        setError(e.error);
-      }
-      setIsListening(false);
-    };
-    r.onend = () => {
-      setIsListening(false);
-      setInterim("");
-    };
-    r.onstart = () => {
-      setError(null);
-      setIsListening(true);
-    };
-
-    recognitionRef.current = r;
-
-    return () => {
-      try {
-        r.abort();
-      } catch {
-        // ignore
-      }
-      recognitionRef.current = null;
-    };
-    // Build once per mount. `lang` is applied in-place by the effect below
-    // so we don't tear down recognition just to switch languages.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Apply language changes in-place; takes effect on the next start().
-  useEffect(() => {
-    const r = recognitionRef.current;
-    if (r) r.lang = lang;
-  }, [lang]);
+  const useWhisper = forceWhisper || !webSpeech.supported;
+  const active = useWhisper ? whisper : webSpeech;
 
   const start = useCallback(() => {
-    const r = recognitionRef.current;
-    if (!r) return;
-    try {
-      r.start();
-    } catch {
-      // already started — ignore
-    }
-  }, []);
+    wantedListeningRef.current = true;
+    active.start();
+  }, [active]);
 
   const stop = useCallback(() => {
-    const r = recognitionRef.current;
-    if (!r) return;
-    try {
-      r.stop();
-    } catch {
-      // ignore
-    }
-  }, []);
+    wantedListeningRef.current = false;
+    active.stop();
+  }, [active]);
 
   const toggle = useCallback(() => {
-    if (isListening) stop();
+    if (active.isListening) stop();
     else start();
-  }, [isListening, start, stop]);
+  }, [active.isListening, start, stop]);
 
-  return { supported, isListening, interim, start, stop, toggle, error };
+  // Suppress the Web Speech "network" / "service-not-allowed" error from the
+  // caller's view — it's transient noise during the fallback handover. Real
+  // errors from the active strategy still surface.
+  const visibleError = useWhisper
+    ? whisper.error
+    : webSpeech.error && FATAL_WEB_SPEECH_ERRORS.has(webSpeech.error)
+      ? null
+      : webSpeech.error;
+
+  return {
+    supported: webSpeech.supported || whisper.supported,
+    isListening: active.isListening,
+    interim: active.interim,
+    error: visibleError,
+    start,
+    stop,
+    toggle,
+  };
 }

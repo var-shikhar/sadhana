@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { Button, ButtonBare } from "@/components/ui/button"
@@ -16,9 +16,13 @@ import {
   GOAL_SHAPES,
   GOAL_SHAPE_LABEL,
   GOAL_STATUS_LABEL,
+  GOAL_TYPE_DESCRIPTION,
+  GOAL_TYPE_LABEL,
+  SHAPES_FOR_GOAL_TYPE,
   type GoalHorizon,
   type GoalShape,
   type GoalStatus,
+  type GoalType,
   type GoalWithProgress,
 } from "@/types"
 import {
@@ -32,18 +36,31 @@ import {
 type CadenceFilter = "all" | GoalShape
 type StatusFilter = "all" | GoalStatus
 type CategoryFilter = "all" | "none" | string
+type TypeFilter = "all" | GoalType
 
 export default function GoalsPage() {
   const [cadenceFilter, setCadenceFilter] = useState<CadenceFilter>("all")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active")
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all")
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
 
-  const { goals, loading } = useAllGoals({
+  const { goals: allGoals, loading } = useAllGoals({
     shape: cadenceFilter === "all" ? undefined : cadenceFilter,
     status: statusFilter === "all" ? undefined : statusFilter,
     category: categoryFilter,
   })
   const { categories } = useCategories()
+
+  // Type filter applied client-side. The server filter set doesn't include
+  // goalType yet; the data volume is small enough that filtering here is
+  // fine, and it sidesteps an API change.
+  const goals = useMemo(
+    () =>
+      typeFilter === "all"
+        ? allGoals
+        : allGoals.filter((g) => g.goalType === typeFilter),
+    [allGoals, typeFilter],
+  )
 
   const [addOpen, setAddOpen] = useState(false)
 
@@ -69,6 +86,16 @@ export default function GoalsPage() {
 
       {/* ── Filters ─────────────────────────────────────────────────── */}
       <div className="space-y-2">
+        <FilterPillRow
+          label="Type"
+          options={[
+            { value: "all", label: "All" },
+            { value: "quest", label: "Quests" },
+            { value: "discipline", label: "Disciplines" },
+          ]}
+          value={typeFilter}
+          onChange={(v) => setTypeFilter(v as TypeFilter)}
+        />
         <FilterPillRow
           label="Cadence"
           options={[
@@ -173,6 +200,9 @@ function GoalRow({
             <ProgressDot goal={goal} />
           </div>
           <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
+            <Badge tone={goal.goalType === "quest" ? "saffron" : "earth"}>
+              {goal.goalType === "quest" ? "Quest" : "Discipline"}
+            </Badge>
             <Badge tone="earth">{GOAL_SHAPE_LABEL[goal.shape]}</Badge>
             {categoryTitle && <Badge tone="sage">{categoryTitle}</Badge>}
             {goal.status !== "active" && (
@@ -302,6 +332,8 @@ interface GoalFormModalProps {
   parentStartDate?: string
   /** Parent's end date — sub-goal can't end later. null = unbounded parent. */
   parentEndDate?: string | null
+  /** Pre-select a goal type. Used by callers (e.g. Plan tab "+ Add discipline"). */
+  defaultGoalType?: GoalType
   defaultCategoryId?: string | null
   onClose: () => void
 }
@@ -312,6 +344,7 @@ export function GoalFormModal({
   parentShape,
   parentStartDate,
   parentEndDate,
+  defaultGoalType,
   defaultCategoryId,
   onClose,
 }: GoalFormModalProps) {
@@ -321,12 +354,23 @@ export function GoalFormModal({
   const today = todayYmd()
   const isSubGoal = !!parentId
 
-  // Cadences a sub-goal may take, given the parent's cadence. Top-level
-  // goals can be any cadence. Default the form's shape to the first
-  // allowed value so we never start in an invalid state.
-  const allowedShapes = isSubGoal && parentShape
-    ? allowedSubShapesFor(parentShape)
-    : GOAL_SHAPES
+  // Goal type drives every other field. Default to 'discipline' (the
+  // recurring practice mode) unless the caller pre-selects something or
+  // we're inside a sub-goal flow (sub-goals are tasks-of-quests now, so
+  // their type matches the parent — we read it from parentShape).
+  const [goalType, setGoalType] = useState<GoalType>(
+    defaultGoalType ??
+      (isSubGoal && parentShape === "by_date" ? "quest" : "discipline"),
+  )
+
+  // Cadences allowed for this type. For sub-goals, additionally clamp by
+  // the parent's shape (parent must outlast child).
+  const allowedShapes = (() => {
+    const byType = SHAPES_FOR_GOAL_TYPE[goalType]
+    if (!isSubGoal || !parentShape) return byType
+    const byParent = allowedSubShapesFor(parentShape)
+    return byType.filter((s) => byParent.includes(s))
+  })()
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -341,6 +385,15 @@ export function GoalFormModal({
     defaultCategoryId ?? null,
   )
   const [error, setError] = useState<string | null>(null)
+
+  // Switching goal type can leave `shape` outside the new allowed set
+  // (quest only allows by_date; discipline excludes by_date). Snap it
+  // back to a valid value when the type flips.
+  useEffect(() => {
+    if (!allowedShapes.includes(shape)) {
+      setShape(allowedShapes[0] ?? "daily")
+    }
+  }, [goalType, shape, allowedShapes])
 
   // Lock body scroll while open.
   useEffect(() => {
@@ -390,6 +443,7 @@ export function GoalFormModal({
         // default medium_term otherwise.
         horizon: parentHorizon ?? "medium_term",
         shape,
+        goalType,
         weeklyTarget:
           shape === "weekly" || shape === "monthly" ? weeklyTarget : null,
         totalTarget: shape === "by_date" ? totalTarget : null,
@@ -432,6 +486,45 @@ export function GoalFormModal({
           </p>
         </div>
 
+        {/* Goal type — the first decision. Drives cadence options and
+            milestone vs no-milestone layout. Hidden inside sub-goal flow
+            (sub-goals inherit type implicitly from the parent context). */}
+        {!isSubGoal && (
+          <div className="space-y-1.5">
+            <label className="label-tiny block">Goal type</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(["discipline", "quest"] as const).map((t) => {
+                const active = goalType === t
+                return (
+                  <ButtonBare
+                    key={t}
+                    type="button"
+                    onClick={() => setGoalType(t)}
+                    className={cn(
+                      "rounded-md border px-3 py-2 text-left transition-colors",
+                      active
+                        ? "bg-ink text-ivory border-ink"
+                        : "bg-ivory text-earth-deep border-gold/40 hover:bg-ivory-deep",
+                    )}
+                  >
+                    <p className="font-pressure-caps text-[10px] tracking-wider">
+                      {GOAL_TYPE_LABEL[t]}
+                    </p>
+                    <p
+                      className={cn(
+                        "font-lyric-italic text-[10px] mt-0.5 leading-snug",
+                        active ? "text-ivory/80" : "text-earth-mid",
+                      )}
+                    >
+                      {GOAL_TYPE_DESCRIPTION[t]}
+                    </p>
+                  </ButtonBare>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Title */}
         <div className="space-y-1.5">
           <label className="label-tiny block">Title</label>
@@ -439,7 +532,11 @@ export function GoalFormModal({
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value.slice(0, 80))}
-            placeholder="e.g. Read 30 minutes"
+            placeholder={
+              goalType === "quest"
+                ? "e.g. Reach $10k in savings"
+                : "e.g. Read 30 minutes"
+            }
             className="w-full bg-ivory border border-gold/40 rounded-md px-3 py-2 text-[13px] font-sans outline-none focus:border-ink/40"
           />
         </div>
@@ -456,13 +553,20 @@ export function GoalFormModal({
           />
         </div>
 
-        {/* Cadence — sub-goals are constrained to the parent's window. */}
+        {/* Cadence — gated by goal type (and by parent's shape for sub-goals).
+            Quests always end up on by_date; disciplines pick a recurrence. */}
         <div className="space-y-1.5">
           <label className="label-tiny block">Cadence</label>
           <div className="flex gap-1.5 flex-wrap">
             {GOAL_SHAPES.map((s) => {
               const isActive = shape === s
               const isAllowed = allowedShapes.includes(s)
+              if (!isAllowed && goalType === "quest" && s !== "by_date") {
+                // Hide non-applicable shapes for quests rather than greying
+                // them out — there's no useful "you can't pick weekly for
+                // a quest" affordance.
+                return null
+              }
               return (
                 <ButtonBare
                   key={s}

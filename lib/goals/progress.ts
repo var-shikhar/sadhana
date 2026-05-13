@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { goals, goalLogs } from "@/lib/db/schema";
-import { and, eq, gte, lte, desc, sql, isNull } from "drizzle-orm";
+import { goals, goalLogs, profiles } from "@/lib/db/schema";
+import { and, eq, gte, lte, desc, sql, isNull, inArray } from "drizzle-orm";
 import type {
   Goal,
   GoalHorizon,
@@ -50,6 +50,7 @@ export function dbGoalToType(row: typeof goals.$inferSelect): Goal {
     description: row.description,
     horizon: row.horizon,
     shape: row.shape,
+    goalType: row.goalType,
     weeklyTarget: row.weeklyTarget,
     totalTarget: row.totalTarget,
     source: row.source,
@@ -64,27 +65,101 @@ export function dbGoalToType(row: typeof goals.$inferSelect): Goal {
 }
 
 /**
+ * The user's max-active-quests setting. Defaults to 1 if profile row
+ * absent (shouldn't happen post-onboarding but stay safe).
+ */
+export async function getMaxActiveQuests(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: profiles.maxActiveQuests })
+    .from(profiles)
+    .where(eq(profiles.id, userId))
+    .limit(1);
+  return row?.n ?? 1;
+}
+
+/** Count of quests currently in 'active' status. */
+export async function countActiveQuests(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(goals)
+    .where(
+      and(
+        eq(goals.userId, userId),
+        eq(goals.goalType, "quest"),
+        eq(goals.status, "active"),
+      ),
+    );
+  return Number(row?.n ?? 0);
+}
+
+/**
  * Promote any of this user's 'scheduled' goals whose start_date has arrived
- * to 'active'. Cheap idempotent UPDATE — run at the start of every list /
- * detail read so the scheduled→active transition is invisible to callers.
+ * to 'active'. Run at the start of every list / detail read so the
+ * scheduled→active transition is invisible to callers.
  *
- * Returns the ids of newly-promoted goals so the caller can emit nudges
- * ("Today is the day for: {title}") on the next Home render.
+ * Rules differ by goal type:
+ *   • Disciplines      — promoted unconditionally. They run in parallel,
+ *                        so there's no cap.
+ *   • Quests           — promoted up to (maxActiveQuests - currentActive).
+ *                        If more are due than slots, the ones with earliest
+ *                        startDate (then createdAt) win; the rest stay
+ *                        scheduled and naturally surface as "queued."
+ *
+ * Returns the ids of newly-promoted goals.
  */
 export async function promoteScheduledGoals(userId: string): Promise<string[]> {
   const today = todayYmd();
-  const promoted = await db
+
+  // Disciplines: promote all due.
+  const promotedDisciplines = await db
     .update(goals)
     .set({ status: "active", updatedAt: new Date() })
     .where(
       and(
         eq(goals.userId, userId),
         eq(goals.status, "scheduled"),
+        eq(goals.goalType, "discipline"),
         lte(goals.startDate, today),
       ),
     )
     .returning({ id: goals.id });
-  return promoted.map((p) => p.id);
+
+  // Quests: only fill remaining activation slots.
+  const max = await getMaxActiveQuests(userId);
+  const current = await countActiveQuests(userId);
+  const slots = Math.max(0, max - current);
+
+  let promotedQuestIds: string[] = [];
+  if (slots > 0) {
+    const due = await db
+      .select({ id: goals.id })
+      .from(goals)
+      .where(
+        and(
+          eq(goals.userId, userId),
+          eq(goals.status, "scheduled"),
+          eq(goals.goalType, "quest"),
+          lte(goals.startDate, today),
+        ),
+      )
+      .orderBy(goals.startDate, goals.createdAt)
+      .limit(slots);
+
+    if (due.length > 0) {
+      promotedQuestIds = due.map((d) => d.id);
+      await db
+        .update(goals)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(
+          and(
+            eq(goals.userId, userId),
+            inArray(goals.id, promotedQuestIds),
+          ),
+        );
+    }
+  }
+
+  return [...promotedDisciplines.map((p) => p.id), ...promotedQuestIds];
 }
 
 function dbLogToType(row: typeof goalLogs.$inferSelect): GoalLog {

@@ -3,8 +3,13 @@ import { requireUser } from "@/lib/auth/require-user";
 import { db } from "@/lib/db";
 import { goals } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
-import { getGoal } from "@/lib/goals/progress";
+import {
+  countActiveQuests,
+  getGoal,
+  getMaxActiveQuests,
+} from "@/lib/goals/progress";
 import { recordGoalChanges } from "@/lib/goals/history";
+import { QUEST_ACTIVATION_CONFLICT } from "@/lib/goals/lifecycle";
 import {
   isHorizonAllowedUnder,
   type GoalHorizon,
@@ -132,6 +137,41 @@ export async function PATCH(
   }
   if (body.status && body.status !== "completed" && before.completedDate) {
     updates.completedDate = null;
+  }
+
+  // Quest activation cap. If the patch flips a quest from non-active to
+  // 'active' AND the user is already at maxActiveQuests, reject with a
+  // structured conflict response. The client catches this and offers a
+  // modal letting the user pause one of their current active quests.
+  if (
+    body.status === "active" &&
+    before.status !== "active" &&
+    before.goalType === "quest"
+  ) {
+    const [max, current] = await Promise.all([
+      getMaxActiveQuests(auth.userId),
+      countActiveQuests(auth.userId),
+    ]);
+    if (current >= max) {
+      const activeRows = await db
+        .select({ id: goals.id })
+        .from(goals)
+        .where(
+          and(
+            eq(goals.userId, auth.userId),
+            eq(goals.goalType, "quest"),
+            eq(goals.status, "active"),
+          ),
+        );
+      return NextResponse.json(
+        {
+          error: QUEST_ACTIVATION_CONFLICT,
+          max,
+          currentActiveQuestIds: activeRows.map((r) => r.id),
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const [row] = await db

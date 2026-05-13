@@ -27,6 +27,8 @@ interface UpdateProfilePayload {
   displayName?: string;
   morningReminderTime?: string;
   eveningReminderTime?: string;
+  /** How many quests may be 'active' simultaneously. 1, 2, or 3. */
+  maxActiveQuests?: number;
 }
 
 export function useUpdateProfile() {
@@ -53,6 +55,12 @@ export function useUpdateProfile() {
           }),
           ...(payload.eveningReminderTime !== undefined && {
             eveningReminderTime: payload.eveningReminderTime,
+          }),
+          ...(payload.maxActiveQuests !== undefined && {
+            maxActiveQuests: Math.max(
+              1,
+              Math.min(3, Math.round(payload.maxActiveQuests)),
+            ),
           }),
         });
       }

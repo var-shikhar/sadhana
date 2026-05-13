@@ -32,6 +32,8 @@ interface CreateTaskInput {
   description?: string | null;
   important?: boolean;
   urgent?: boolean;
+  /** Quest tasks live under a milestone; pass null/omit for discipline tasks. */
+  milestoneId?: string | null;
 }
 
 export function useCreateTask() {
@@ -64,6 +66,7 @@ export function useCreateTask() {
         id: tempId,
         userId: "",
         goalId: input.goalId,
+        milestoneId: input.milestoneId ?? null,
         title: input.title.trim().slice(0, 120),
         description: input.description?.trim().slice(0, 600) || null,
         important: input.important ?? false,
@@ -105,6 +108,7 @@ interface UpdateTaskInput {
     status: TaskStatus;
     completionNote: string | null;
     sortOrder: number;
+    milestoneId: string | null;
   }>;
 }
 

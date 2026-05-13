@@ -197,6 +197,8 @@ export interface Task {
   userId: string;
   /** Either a top-level goal or a sub-goal — both live in `goals`. */
   goalId: string;
+  /** Quest tasks live inside a milestone. Discipline tasks have null. */
+  milestoneId: string | null;
   title: string;
   description: string | null;
   important: boolean;
@@ -377,6 +379,38 @@ export type GoalStatus =
 export type GoalSource = "user" | "suggestion";
 export type GoalHorizon = "short_term" | "medium_term" | "long_term";
 
+/**
+ * The two kinds of goal:
+ *
+ *   • Quest      — sequential, achievement-oriented. ONE active at a time
+ *                  by default (settable up to 3 via maxActiveQuests).
+ *                  Carries ordered milestones; tasks live inside a
+ *                  milestone, not directly on the goal.
+ *
+ *   • Discipline — recurring practice. Runs in parallel, always. No
+ *                  milestones. Tasks live directly on the goal. This is
+ *                  the bedrock daily/weekly practice that underlies
+ *                  whatever quest is currently in flight.
+ */
+export type GoalType = "quest" | "discipline";
+
+export const GOAL_TYPE_LABEL: Record<GoalType, string> = {
+  quest: "Quest",
+  discipline: "Discipline",
+};
+
+export const GOAL_TYPE_DESCRIPTION: Record<GoalType, string> = {
+  quest: "A sequential journey. One active at a time. Milestones along the way.",
+  discipline: "A recurring practice. Runs alongside everything else. No end.",
+};
+
+/** Shapes valid for each goal type — quest implies a finishable cadence
+ *  (by_date works best); discipline implies recurrence. */
+export const SHAPES_FOR_GOAL_TYPE: Record<GoalType, GoalShape[]> = {
+  quest: ["by_date"],
+  discipline: ["daily", "weekly", "monthly"],
+};
+
 export const GOAL_STATUS_LABEL: Record<GoalStatus, string> = {
   active: "Active",
   scheduled: "Scheduled",
@@ -479,6 +513,11 @@ export interface Goal {
   description: string | null;
   horizon: GoalHorizon;
   shape: GoalShape;
+  /**
+   * Quest or Discipline. Drives every major UI branch — quests get
+   * milestones + activation constraint; disciplines run in parallel.
+   */
+  goalType: GoalType;
   weeklyTarget: number | null;
   totalTarget: number | null;
   source: GoalSource;
@@ -494,6 +533,29 @@ export interface Goal {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Ordered checkpoint along a quest's journey. Belongs to a quest goal.
+ * `targetValue` is optional — many milestones are binary thresholds
+ * ("draft complete") rather than quantitative ones ("$10k saved").
+ */
+export interface Milestone {
+  id: string;
+  goalId: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  targetValue: number | null;
+  orderIndex: number;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MilestoneWithTaskCount extends Milestone {
+  taskCount: number;
+  taskCompletedCount: number;
 }
 
 export interface GoalLog {
@@ -679,6 +741,8 @@ export interface Profile {
   onboardingCompleted: boolean;
   morningReminderTime: string;
   eveningReminderTime: string;
+  /** How many quests may be 'active' at once. 1 (default), 2, or 3. */
+  maxActiveQuests: number;
 }
 
 // ── Preset Habits Data ──

@@ -10,6 +10,7 @@ import { HabitDot } from "@/components/gurukul/HabitDot"
 import { cn } from "@/lib/utils"
 import { useAllGoals } from "@/hooks/useGoals"
 import { useAffirmations } from "@/hooks/useAffirmations"
+import { useMilestones } from "@/hooks/useMilestones"
 import { queryKeys } from "@/lib/query-keys"
 import {
   formatHumanDate,
@@ -46,28 +47,67 @@ export default function PlanPage() {
 
   const loading = activeLoading || schedLoading || affirmationsLoading
 
-  const { overdue, dueSoon, inFlight, upcoming } = useMemo(() => {
-    const overdue: GoalWithProgress[] = []
-    const dueSoon: GoalWithProgress[] = []
-    const inFlight: GoalWithProgress[] = []
-    const upcoming: GoalWithProgress[] = []
+  // The active quest gets center stage (there's usually one, sometimes
+  // two/three depending on maxActiveQuests). Disciplines are bucketed
+  // separately so the user reads them as parallel practices, not as
+  // peers of the quest.
+  const {
+    activeQuests,
+    overdueDisciplines,
+    dueSoonDisciplines,
+    inFlightDisciplines,
+    upcomingQuests,
+    upcomingDisciplines,
+  } = useMemo(() => {
+    const activeQuests: GoalWithProgress[] = []
+    const overdueDisciplines: GoalWithProgress[] = []
+    const dueSoonDisciplines: GoalWithProgress[] = []
+    const inFlightDisciplines: GoalWithProgress[] = []
+    const upcomingQuests: GoalWithProgress[] = []
+    const upcomingDisciplines: GoalWithProgress[] = []
+
     for (const g of activeGoals) {
-      if (!isInFlight(g, today) && g.endDate && g.endDate < today) {
-        overdue.push(g)
+      if (g.goalType === "quest") {
+        // Only show in-flight quests in the active spotlight. An "active"
+        // quest whose end has passed shows as overdue at the top of the
+        // quest section rather than buried in disciplines.
+        activeQuests.push(g)
         continue
       }
+      // Disciplines: split by phase.
       const phase = lifecyclePhaseOf(g, today)
-      if (phase === "due_soon") dueSoon.push(g)
-      else if (phase === "in_flight") inFlight.push(g)
+      if (!isInFlight(g, today) && g.endDate && g.endDate < today) {
+        overdueDisciplines.push(g)
+      } else if (phase === "due_soon") dueSoonDisciplines.push(g)
+      else if (phase === "in_flight") inFlightDisciplines.push(g)
     }
-    for (const g of scheduledGoals) upcoming.push(g)
-    return { overdue, dueSoon, inFlight, upcoming }
+
+    for (const g of scheduledGoals) {
+      if (g.goalType === "quest") upcomingQuests.push(g)
+      else upcomingDisciplines.push(g)
+    }
+
+    return {
+      activeQuests,
+      overdueDisciplines,
+      dueSoonDisciplines,
+      inFlightDisciplines,
+      upcomingQuests,
+      upcomingDisciplines,
+    }
   }, [activeGoals, scheduledGoals, today])
 
-  const totalPlannable = inFlight.length + dueSoon.length + overdue.length
-  const completedToday = [...inFlight, ...dueSoon, ...overdue].filter(
-    (g) => g.progress.isMet,
-  ).length
+  const totalDisciplines =
+    inFlightDisciplines.length +
+    dueSoonDisciplines.length +
+    overdueDisciplines.length
+  const totalPlannable = activeQuests.length + totalDisciplines
+  const completedToday = [
+    ...activeQuests,
+    ...inFlightDisciplines,
+    ...dueSoonDisciplines,
+    ...overdueDisciplines,
+  ].filter((g) => g.progress.isMet).length
 
   const hasActiveAffirmation = affirmations.some((a) => a.isActive)
 
@@ -138,55 +178,80 @@ export default function PlanPage() {
       <GoldRule width="section" />
 
       {/* ── Empty state ──────────────────────────────────────────── */}
-      {totalPlannable === 0 && upcoming.length === 0 && (
-        <div className="rounded-md border border-gold/30 bg-ivory-deep p-6 text-center space-y-3">
-          <p className="font-lyric text-base text-ink">
-            Nothing in flight today.
-          </p>
-          <p className="font-lyric-italic text-[12px] text-earth-mid">
-            Define a goal in the Goals tab to see it here.
-          </p>
-          <Link href="/goals" className="inline-block">
-            <Button size="sm">Open Goals</Button>
-          </Link>
-        </div>
+      {totalPlannable === 0 &&
+        upcomingQuests.length === 0 &&
+        upcomingDisciplines.length === 0 && (
+          <div className="rounded-md border border-gold/30 bg-ivory-deep p-6 text-center space-y-3">
+            <p className="font-lyric text-base text-ink">
+              Nothing in flight today.
+            </p>
+            <p className="font-lyric-italic text-[12px] text-earth-mid">
+              Define a goal in the Goals tab to see it here.
+            </p>
+            <Link href="/goals" className="inline-block">
+              <Button size="sm">Open Goals</Button>
+            </Link>
+          </div>
+        )}
+
+      {/* ── Active quest(s) — center stage ───────────────────────── */}
+      {activeQuests.length > 0 && (
+        <section className="space-y-2">
+          <div>
+            <LabelTiny>The quest{activeQuests.length > 1 ? "s" : ""}</LabelTiny>
+            <p className="font-lyric-italic text-[11px] text-earth-mid mt-0.5">
+              The journey you&apos;re on. One step at a time.
+            </p>
+          </div>
+          <div className="space-y-3">
+            {activeQuests.map((g) => (
+              <ActiveQuestCard key={g.id} goal={g} />
+            ))}
+          </div>
+        </section>
       )}
 
-      {/* ── Overdue ──────────────────────────────────────────────── */}
-      {overdue.length > 0 && (
-        <PhaseSection
-          phase="overdue"
-          title="Overdue"
-          caption="The window passed — review or close them out."
-          goals={overdue}
-          onLog={logProgress}
-        />
+      {/* ── Disciplines: overdue / due soon / in flight ──────────── */}
+      {(overdueDisciplines.length > 0 ||
+        dueSoonDisciplines.length > 0 ||
+        inFlightDisciplines.length > 0) && (
+        <section className="space-y-3">
+          <div>
+            <LabelTiny>Disciplines</LabelTiny>
+            <p className="font-lyric-italic text-[11px] text-earth-mid mt-0.5">
+              The bedrock — practices that run alongside whatever you&apos;re
+              chasing.
+            </p>
+          </div>
+          {overdueDisciplines.length > 0 && (
+            <PhaseGroup
+              phase="overdue"
+              title="Overdue"
+              goals={overdueDisciplines}
+              onLog={logProgress}
+            />
+          )}
+          {dueSoonDisciplines.length > 0 && (
+            <PhaseGroup
+              phase="due_soon"
+              title="Due soon"
+              goals={dueSoonDisciplines}
+              onLog={logProgress}
+            />
+          )}
+          {inFlightDisciplines.length > 0 && (
+            <PhaseGroup
+              phase="in_flight"
+              title="Today"
+              goals={inFlightDisciplines}
+              onLog={logProgress}
+            />
+          )}
+        </section>
       )}
 
-      {/* ── Due soon (within 7 days) ─────────────────────────────── */}
-      {dueSoon.length > 0 && (
-        <PhaseSection
-          phase="due_soon"
-          title="Due soon"
-          caption="Closing in. Don't let these slip."
-          goals={dueSoon}
-          onLog={logProgress}
-        />
-      )}
-
-      {/* ── In flight ────────────────────────────────────────────── */}
-      {inFlight.length > 0 && (
-        <PhaseSection
-          phase="in_flight"
-          title="In flight"
-          caption="Active and on time."
-          goals={inFlight}
-          onLog={logProgress}
-        />
-      )}
-
-      {/* ── Upcoming (scheduled goals) ────────────────────────────── */}
-      {upcoming.length > 0 && (
+      {/* ── Upcoming (scheduled) ─────────────────────────────────── */}
+      {(upcomingQuests.length > 0 || upcomingDisciplines.length > 0) && (
         <section className="space-y-2">
           <div>
             <LabelTiny>Upcoming</LabelTiny>
@@ -196,13 +261,27 @@ export default function PlanPage() {
             </p>
           </div>
           <ul className="rounded-md border border-gold/30 bg-ivory-deep divide-y divide-gold/20 overflow-hidden">
-            {upcoming.map((g) => (
+            {[...upcomingQuests, ...upcomingDisciplines].map((g) => (
               <li key={g.id} className="hover:bg-ivory transition-colors">
                 <Link
                   href={`/goals/${g.id}`}
                   className="block px-3 py-2.5 space-y-0.5"
                 >
-                  <p className="font-lyric text-[14px] text-ink">{g.title}</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className="font-lyric text-[14px] text-ink flex-1">
+                      {g.title}
+                    </p>
+                    <span
+                      className={cn(
+                        "font-pressure-caps text-[9px] tracking-wider",
+                        g.goalType === "quest"
+                          ? "text-saffron"
+                          : "text-earth-mid",
+                      )}
+                    >
+                      {g.goalType === "quest" ? "Quest" : "Discipline"}
+                    </span>
+                  </div>
                   <p className="font-pressure-caps text-[9px] text-earth-mid tracking-wider">
                     Starts {formatRelativeFromToday(g.startDate)} ·{" "}
                     {formatHumanDate(g.startDate)} · {GOAL_SHAPE_LABEL[g.shape]}
@@ -217,7 +296,80 @@ export default function PlanPage() {
   )
 }
 
-// ─── Phase section ────────────────────────────────────────────────────────
+// ─── Active quest card ────────────────────────────────────────────────────
+
+function ActiveQuestCard({ goal }: { goal: GoalWithProgress }) {
+  const { milestones } = useMilestones(goal.id)
+
+  const currentMilestone = milestones.find((m) => !m.completedAt) ?? null
+  const completedMilestones = milestones.filter((m) => m.completedAt).length
+
+  const phase = lifecyclePhaseOf(goal)
+  const endHint =
+    goal.endDate && (phase === "due_soon" || phase === "overdue")
+      ? `${phase === "overdue" ? "Was due" : "Ends"} ${formatRelativeFromToday(goal.endDate)}`
+      : null
+
+  return (
+    <Link
+      href={`/goals/${goal.id}`}
+      className="block rounded-md border border-saffron/40 bg-saffron/5 p-4 space-y-2.5 hover:bg-saffron/10 transition-colors"
+      aria-label={`Open quest ${goal.title}`}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-lyric text-[18px] text-ink leading-tight">
+          {goal.title}
+        </p>
+        <span className="font-pressure-caps text-[9px] text-saffron tracking-wider shrink-0">
+          Quest
+        </span>
+      </div>
+
+      {/* Current milestone — the one to push on today. */}
+      {currentMilestone ? (
+        <div className="rounded border border-saffron/30 bg-ivory/60 px-3 py-2">
+          <p className="font-pressure-caps text-[9px] text-earth-mid tracking-wider">
+            Current milestone
+          </p>
+          <p className="font-lyric text-[14px] text-ink mt-0.5">
+            {currentMilestone.title}
+          </p>
+          {currentMilestone.targetValue != null && (
+            <p className="font-pressure-caps text-[9px] text-earth-mid tracking-wider mt-0.5">
+              target {currentMilestone.targetValue}
+            </p>
+          )}
+        </div>
+      ) : milestones.length === 0 ? (
+        <p className="font-lyric-italic text-[11px] text-earth-mid">
+          No milestones yet — open the quest to add one.
+        </p>
+      ) : (
+        <p className="font-lyric-italic text-[11px] text-sage">
+          Every milestone reached. Mark the quest complete when you&apos;re ready.
+        </p>
+      )}
+
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <span className="font-pressure-caps text-[9px] text-earth-mid tracking-wider">
+          {completedMilestones}/{milestones.length} milestones
+        </span>
+        {endHint && (
+          <span
+            className={cn(
+              "font-pressure-caps text-[9px] tracking-wider",
+              phase === "overdue" ? "text-saffron" : "text-earth-deep",
+            )}
+          >
+            {endHint}
+          </span>
+        )}
+      </div>
+    </Link>
+  )
+}
+
+// ─── Phase group (within Disciplines) ────────────────────────────────────
 
 const PHASE_TONE: Record<LifecyclePhase, string> = {
   overdue: "border-saffron/60",
@@ -229,27 +381,22 @@ const PHASE_TONE: Record<LifecyclePhase, string> = {
   abandoned: "border-earth-mid/30",
 }
 
-function PhaseSection({
+function PhaseGroup({
   phase,
   title,
-  caption,
   goals,
   onLog,
 }: {
   phase: LifecyclePhase
   title: string
-  caption: string
   goals: GoalWithProgress[]
   onLog: (goalId: string, done: boolean, value?: number) => Promise<void>
 }) {
   return (
-    <section className="space-y-2">
-      <div>
-        <LabelTiny>{title}</LabelTiny>
-        <p className="font-lyric-italic text-[11px] text-earth-mid mt-0.5">
-          {caption}
-        </p>
-      </div>
+    <div className="space-y-1.5">
+      <p className="font-pressure-caps text-[10px] text-earth-mid tracking-wider">
+        {title}
+      </p>
       <ul
         className={cn(
           "rounded-md border bg-ivory-deep divide-y divide-gold/20 overflow-hidden",
@@ -260,7 +407,7 @@ function PhaseSection({
           <PlanGoalRow key={g.id} goal={g} onLog={onLog} />
         ))}
       </ul>
-    </section>
+    </div>
   )
 }
 

@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { goals, goalLogs, categories } from "@/lib/db/schema";
 import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
-import type { GoalShape, GoalSource, CategoryColor } from "@/types";
+import type { GoalShape, GoalSource, GoalType, CategoryColor } from "@/types";
 import { promoteScheduledGoals } from "@/lib/goals/progress";
 
 function ymd(d: Date): string {
@@ -26,6 +26,7 @@ export interface TodayGoalRow {
   categoryColor: CategoryColor | null;
   title: string;
   shape: GoalShape;
+  goalType: GoalType;
   source: GoalSource;
   // daily-shape:
   todayDone?: boolean;
@@ -71,6 +72,7 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
       id: goals.id,
       title: goals.title,
       shape: goals.shape,
+      goalType: goals.goalType,
       source: goals.source,
       weeklyTarget: goals.weeklyTarget,
       totalTarget: goals.totalTarget,
@@ -155,6 +157,7 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
         categoryColor: r.categoryColor,
         title: r.title,
         shape: r.shape,
+        goalType: r.goalType,
         source: r.source,
         todayDone,
         streak,
@@ -174,6 +177,7 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
         categoryColor: r.categoryColor,
         title: r.title,
         shape: r.shape,
+        goalType: r.goalType,
         source: r.source,
         weekTotal,
         weeklyTarget: target,
@@ -199,6 +203,7 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
         categoryColor: r.categoryColor,
         title: r.title,
         shape: r.shape,
+        goalType: r.goalType,
         source: r.source,
         weekTotal: monthTotal,
         weeklyTarget: target,
@@ -226,6 +231,7 @@ export async function getTodayGoals(userId: string): Promise<TodayGoalRow[]> {
       categoryColor: r.categoryColor,
       title: r.title,
       shape: r.shape,
+      goalType: r.goalType,
       source: r.source,
       totalSoFar,
       totalTarget: target,
