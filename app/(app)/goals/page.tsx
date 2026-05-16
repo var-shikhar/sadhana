@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
-import { Button, ButtonBare } from "@/components/ui/button"
+import { Plus, SlidersHorizontal, X } from "lucide-react"
+import { ButtonBare } from "@/components/ui/button"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
 import { GoldRule } from "@/components/gurukul/GoldRule"
+import { Loader } from "@/components/gurukul/Loader"
 import { cn } from "@/lib/utils"
 import {
   useAllGoals,
   useCreateGoalV2,
+  useSubGoals,
 } from "@/hooks/useGoals"
 import { useCategories } from "@/hooks/useCategories"
 import {
@@ -32,23 +35,43 @@ import {
   suggestedEndDate,
   todayYmd,
 } from "@/lib/goals/lifecycle"
+import { useUIStore } from "@/lib/stores/ui"
 
 type CadenceFilter = "all" | GoalShape
 type StatusFilter = "all" | GoalStatus
 type CategoryFilter = "all" | "none" | string
 type TypeFilter = "all" | GoalType
 
+/** Hard cap on simultaneously-active goals at the UI add-step. Aligns with
+ *  the agenda's "Focus, not capacity" tenet — once the user is running this
+ *  many goals, the add affordance disappears until one is paused/completed.
+ *  Distinct from `maxActiveQuests` (which is a per-user setting that gates
+ *  only quest activation server-side); this is a UI guardrail that applies
+ *  to every goal type. */
+const MAX_ACTIVE_GOALS = 2
+
 export default function GoalsPage() {
   const [cadenceFilter, setCadenceFilter] = useState<CadenceFilter>("all")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active")
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
+  // Sub-task visibility persists across sessions via the UI store (localStorage).
+  // Eventually this will live in the user's Practice settings; for now it's a
+  // per-device preference.
+  const showSubGoals = useUIStore((s) => s.goalsShowSubGoals)
+  const setShowSubGoals = useUIStore((s) => s.setGoalsShowSubGoals)
 
   const { goals: allGoals, loading } = useAllGoals({
     shape: cadenceFilter === "all" ? undefined : cadenceFilter,
     status: statusFilter === "all" ? undefined : statusFilter,
     category: categoryFilter,
   })
+  // Independent count of active goals — used to gate the "+ Add a goal"
+  // button. Driven off its own filter set so the cap doesn't drift when the
+  // user is browsing paused / completed views.
+  const { goals: activeGoalsForCount } = useAllGoals({ status: "active" })
+  const activeGoalCount = activeGoalsForCount.length
+  const canAddGoal = activeGoalCount < MAX_ACTIVE_GOALS
   const { categories } = useCategories()
 
   // Type filter applied client-side. The server filter set doesn't include
@@ -63,100 +86,180 @@ export default function GoalsPage() {
   )
 
   const [addOpen, setAddOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // Chips for the in-page strip + the "Filters (n)" badge count. Status
+  // defaults to "active" (not "all"), so we only treat it as narrowed when
+  // the user picks something else.
+  const activeChips: Array<{ key: string; label: string; clear: () => void }> = []
+  if (typeFilter !== "all") {
+    activeChips.push({
+      key: "type",
+      label: typeFilter === "quest" ? "Quests" : "Disciplines",
+      clear: () => setTypeFilter("all"),
+    })
+  }
+  if (cadenceFilter !== "all") {
+    activeChips.push({
+      key: "cadence",
+      label: GOAL_SHAPE_LABEL[cadenceFilter],
+      clear: () => setCadenceFilter("all"),
+    })
+  }
+  if (statusFilter !== "active") {
+    activeChips.push({
+      key: "status",
+      label: statusFilter === "all" ? "Any status" : GOAL_STATUS_LABEL[statusFilter],
+      clear: () => setStatusFilter("active"),
+    })
+  }
+  if (categoryFilter !== "all") {
+    const label =
+      categoryFilter === "none"
+        ? "Uncategorized"
+        : categories.find((c) => c.id === categoryFilter)?.title ?? "Category"
+    activeChips.push({
+      key: "category",
+      label,
+      clear: () => setCategoryFilter("all"),
+    })
+  }
 
   return (
-    <div className="space-y-6 py-2">
-      <header className="text-center space-y-2 relative">
+    <div className="space-y-5 py-2">
+      <header className="text-center space-y-1.5 relative">
         <LabelTiny>Sankalpa · the things you set</LabelTiny>
         <h1 className="font-lyric text-3xl text-ink">Your goals.</h1>
-        <p className="font-lyric-italic text-sm text-earth-deep max-w-md mx-auto">
-          Each one carries a cadence. Sub-tasks live inside.
-        </p>
       </header>
 
       <GoldRule width="section" />
 
-      <Button
-        type="button"
-        onClick={() => setAddOpen(true)}
-        className="w-full"
-      >
-        + Add a goal
-      </Button>
+      {/* Compact action bar. Was: full-width Add button + 4 filter pill
+          rows below it. Now: small "Filters (n)" pill on the left, small
+          saffron "+ Add" pill on the right. Filters open in a bottom-sheet
+          so the list — the page's actual subject — is the first thing
+          visible. */}
+      <div className="flex items-center gap-2">
+        <ButtonBare
+          type="button"
+          onClick={() => setFiltersOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-ivory px-3 py-1.5 font-pressure-caps text-[10px] tracking-wider text-earth-deep hover:bg-ivory-deep transition-colors"
+          aria-label="Filter goals"
+        >
+          <SlidersHorizontal className="h-3 w-3" />
+          Filters
+          {activeChips.length > 0 && (
+            <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[9px] text-ivory tabular-nums">
+              {activeChips.length}
+            </span>
+          )}
+        </ButtonBare>
 
-      {/* ── Filters ─────────────────────────────────────────────────── */}
-      <div className="space-y-2">
-        <FilterPillRow
-          label="Type"
-          options={[
-            { value: "all", label: "All" },
-            { value: "quest", label: "Quests" },
-            { value: "discipline", label: "Disciplines" },
-          ]}
-          value={typeFilter}
-          onChange={(v) => setTypeFilter(v as TypeFilter)}
-        />
-        <FilterPillRow
-          label="Cadence"
-          options={[
-            { value: "all", label: "All" },
-            ...GOAL_SHAPES.map((s) => ({
-              value: s,
-              label: GOAL_SHAPE_LABEL[s],
-            })),
-          ]}
-          value={cadenceFilter}
-          onChange={(v) => setCadenceFilter(v as CadenceFilter)}
-        />
-        <FilterPillRow
-          label="Status"
-          options={[
-            { value: "active", label: "Active" },
-            { value: "scheduled", label: "Scheduled" },
-            { value: "paused", label: "Paused" },
-            { value: "completed", label: "Completed" },
-            { value: "all", label: "All" },
-          ]}
-          value={statusFilter}
-          onChange={(v) => setStatusFilter(v as StatusFilter)}
-        />
-        {categories.length > 0 && (
-          <FilterPillRow
-            label="Goal Category"
-            options={[
-              { value: "all", label: "All" },
-              { value: "none", label: "Uncategorized" },
-              ...categories.map((c) => ({ value: c.id, label: c.title })),
-            ]}
-            value={categoryFilter}
-            onChange={(v) => setCategoryFilter(v)}
-          />
+        <div className="flex-1" />
+
+        {/* Add affordance hides once the user has reached MAX_ACTIVE_GOALS.
+            Forces a pause / complete before another can be added — agenda
+            tenet 3.1 ("Focus, not capacity"). */}
+        {canAddGoal && (
+          <ButtonBare
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="inline-flex items-center gap-1 rounded-full bg-saffron px-3.5 py-1.5 font-pressure-caps text-[10px] tracking-wider text-ivory hover:opacity-90 transition-opacity"
+          >
+            <Plus className="h-3 w-3" strokeWidth={2.5} />
+            Add a goal
+          </ButtonBare>
         )}
       </div>
 
-      <GoldRule width="section" />
+      {/* When the cap is reached, replace the add affordance with a quiet
+          hint so the absence is explained rather than mysterious. */}
+      {!canAddGoal && (
+        <p className="font-lyric-italic text-[11px] text-earth-mid text-center -mt-2">
+          You&apos;re running {activeGoalCount} active goals. Pause or
+          complete one before taking on another.
+        </p>
+      )}
+
+      {/* Active-filter chips — appear only when something's narrowed,
+          so the default view stays clean. Tapping × clears that one. */}
+      {activeChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {activeChips.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={c.clear}
+              className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-ivory-deep px-2 py-0.5 font-pressure-caps text-[9px] tracking-wider text-earth-deep hover:bg-ivory transition-colors"
+              aria-label={`Clear filter: ${c.label}`}
+            >
+              {c.label}
+              <X className="h-2.5 w-2.5" />
+            </button>
+          ))}
+          {activeChips.length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                setTypeFilter("all")
+                setCadenceFilter("all")
+                setStatusFilter("active")
+                setCategoryFilter("all")
+              }}
+              className="font-pressure-caps text-[9px] tracking-wider text-earth-mid hover:text-earth-deep transition-colors px-1"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── List ────────────────────────────────────────────────────── */}
-      {loading ? (
-        <p className="font-lyric-italic text-earth-mid py-6 text-center">
-          Loading…
-        </p>
-      ) : goals.length === 0 ? (
-        <div className="rounded-md border border-gold/30 bg-ivory-deep p-6 text-center">
-          <p className="font-lyric-italic text-sm text-earth-mid">
-            No goals here. Adjust filters, or add a new goal.
-          </p>
-        </div>
-      ) : (
-        <ul className="rounded-md border border-gold/30 bg-ivory-deep divide-y divide-gold/20 overflow-hidden">
-          {goals.map((g) => (
-            <GoalRow key={g.id} goal={g} categoryTitle={
-              g.categoryId
-                ? categories.find((c) => c.id === g.categoryId)?.title ?? null
-                : null
-            } />
-          ))}
-        </ul>
+      <div className="pt-1">
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader size="md" caption="gathering goals…" />
+          </div>
+        ) : goals.length === 0 ? (
+          <div className="rounded-md border border-gold/30 bg-ivory-deep p-6 text-center">
+            <p className="font-lyric-italic text-sm text-earth-mid">
+              No goals here. Adjust filters, or add a new goal.
+            </p>
+          </div>
+        ) : (
+          <ul className="rounded-md border border-gold/30 bg-ivory-deep divide-y divide-gold/20 overflow-hidden">
+            {goals.map((g) => (
+              <GoalRow
+                key={g.id}
+                goal={g}
+                categoryTitle={
+                  g.categoryId
+                    ? categories.find((c) => c.id === g.categoryId)?.title ??
+                      null
+                    : null
+                }
+                showSubGoals={showSubGoals}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {filtersOpen && (
+        <FiltersModal
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          cadenceFilter={cadenceFilter}
+          setCadenceFilter={setCadenceFilter}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          categoryFilter={categoryFilter}
+          setCategoryFilter={setCategoryFilter}
+          showSubGoals={showSubGoals}
+          setShowSubGoals={setShowSubGoals}
+          categories={categories}
+          onClose={() => setFiltersOpen(false)}
+        />
       )}
 
       {addOpen && (
@@ -169,20 +272,202 @@ export default function GoalsPage() {
   )
 }
 
+// ─── Filters bottom-sheet modal ──────────────────────────────────────────
+
+function FiltersModal({
+  typeFilter,
+  setTypeFilter,
+  cadenceFilter,
+  setCadenceFilter,
+  statusFilter,
+  setStatusFilter,
+  categoryFilter,
+  setCategoryFilter,
+  showSubGoals,
+  setShowSubGoals,
+  categories,
+  onClose,
+}: {
+  typeFilter: TypeFilter
+  setTypeFilter: (v: TypeFilter) => void
+  cadenceFilter: CadenceFilter
+  setCadenceFilter: (v: CadenceFilter) => void
+  statusFilter: StatusFilter
+  setStatusFilter: (v: StatusFilter) => void
+  categoryFilter: CategoryFilter
+  setCategoryFilter: (v: CategoryFilter) => void
+  showSubGoals: boolean
+  setShowSubGoals: (v: boolean) => void
+  categories: Array<{ id: string; title: string }>
+  onClose: () => void
+}) {
+  // Lock body scroll while open — same pattern the form modal uses.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
+  if (typeof document === "undefined") return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Filter goals"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200 max-h-[88vh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
+            Filter goals
+          </h3>
+          <ButtonBare
+            type="button"
+            onClick={onClose}
+            aria-label="Close filters"
+            className="h-7 w-7 rounded-full border border-gold/40 text-earth-mid hover:text-earth-deep hover:bg-ivory flex items-center justify-center transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </ButtonBare>
+        </div>
+
+        <div className="space-y-3">
+          <FilterPillRow
+            label="Type"
+            options={[
+              { value: "all", label: "All" },
+              { value: "quest", label: "Quests" },
+              { value: "discipline", label: "Disciplines" },
+            ]}
+            value={typeFilter}
+            onChange={(v) => setTypeFilter(v as TypeFilter)}
+          />
+          <FilterPillRow
+            label="Cadence"
+            options={[
+              { value: "all", label: "All" },
+              ...GOAL_SHAPES.map((s) => ({
+                value: s,
+                label: GOAL_SHAPE_LABEL[s],
+              })),
+            ]}
+            value={cadenceFilter}
+            onChange={(v) => setCadenceFilter(v as CadenceFilter)}
+          />
+          <FilterPillRow
+            label="Status"
+            options={[
+              { value: "active", label: "Active" },
+              { value: "scheduled", label: "Scheduled" },
+              { value: "paused", label: "Paused" },
+              { value: "completed", label: "Completed" },
+              { value: "all", label: "All" },
+            ]}
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v as StatusFilter)}
+          />
+          {categories.length > 0 && (
+            <FilterPillRow
+              label="Category"
+              options={[
+                { value: "all", label: "All" },
+                { value: "none", label: "Uncategorized" },
+                ...categories.map((c) => ({ value: c.id, label: c.title })),
+              ]}
+              value={categoryFilter}
+              onChange={(v) => setCategoryFilter(v)}
+            />
+          )}
+        </div>
+
+        {/* View options — distinct from filters because they shape the
+            rendering of each row, not which rows show up. Right now there's
+            just the sub-task toggle; more view options can grow here. */}
+        <div className="border-t border-gold/20 pt-3 space-y-2">
+          <p className="font-pressure-caps text-[9px] tracking-wider text-earth-mid">
+            View
+          </p>
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="font-lyric text-[13px] text-earth-deep">
+              Show sub-tasks
+              <span className="block font-lyric-italic text-[11px] text-earth-mid">
+                Reveal the tasks living inside each goal.
+              </span>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showSubGoals}
+              onClick={() => setShowSubGoals(!showSubGoals)}
+              className={cn(
+                "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+                showSubGoals ? "bg-saffron" : "bg-earth-mid/30",
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block h-4 w-4 transform rounded-full bg-ivory shadow transition-transform",
+                  showSubGoals ? "translate-x-4" : "translate-x-0.5",
+                )}
+              />
+            </button>
+          </label>
+        </div>
+
+        <div className="flex justify-between pt-1">
+          <ButtonBare
+            type="button"
+            onClick={() => {
+              setTypeFilter("all")
+              setCadenceFilter("all")
+              setStatusFilter("active")
+              setCategoryFilter("all")
+            }}
+            className="font-pressure-caps text-[10px] tracking-wider text-earth-mid hover:text-earth-deep px-2 py-1"
+          >
+            Reset
+          </ButtonBare>
+          <ButtonBare
+            type="button"
+            onClick={onClose}
+            className="font-pressure-caps text-[10px] tracking-wider bg-ink text-ivory rounded-md px-4 py-1.5"
+          >
+            Done
+          </ButtonBare>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 // ─── Goal row ─────────────────────────────────────────────────────────────
 
 function GoalRow({
   goal,
   categoryTitle,
+  showSubGoals,
 }: {
   goal: GoalWithProgress
   categoryTitle: string | null
+  showSubGoals: boolean
 }) {
   return (
-    <li className="hover:bg-ivory transition-colors">
+    <li>
+      {/* Hover lives on the Link, not the <li>. Otherwise the parent
+          highlights whenever the user is hovering over a sub-task in the
+          inlined block below — which makes the sub-task's own hover state
+          invisible because the bg already matches. */}
       <Link
         href={`/goals/${goal.id}`}
-        className="block px-3 py-3"
+        className="block px-3 py-3 hover:bg-ivory transition-colors"
         aria-label={`Open ${goal.title}`}
       >
         <div className="space-y-1.5">
@@ -213,7 +498,49 @@ function GoalRow({
           </div>
         </div>
       </Link>
+      {showSubGoals && <SubGoalsInline parentId={goal.id} />}
     </li>
+  )
+}
+
+/** Indented inline list of sub-tasks under a parent goal. Only fetches when
+ *  actually rendered — the parent gates this behind a toggle. Hides itself
+ *  entirely when the parent has no sub-goals so empty parents don't get a
+ *  decorative gap. */
+function SubGoalsInline({ parentId }: { parentId: string }) {
+  const { subGoals, loading } = useSubGoals(parentId)
+  if (loading) return null
+  if (subGoals.length === 0) return null
+  return (
+    <ul className="ml-3 mb-2 border-l border-gold/30 pl-3 space-y-0.5">
+      {subGoals.map((sg) => (
+        <li key={sg.id}>
+          {/* Sub-row hover needs a tint distinct from BOTH the container
+              (the parent <ul> is bg-ivory-deep) AND the parent row's
+              hover state (bg-ivory). A soft saffron wash + matching left
+              border picks up the warm thread already used elsewhere in
+              the app and reads clearly against the deep-ivory surround. */}
+          <Link
+            href={`/goals/${sg.id}`}
+            className="group/sub flex items-center gap-2 py-1.5 px-2 rounded-sm border-l-2 border-transparent hover:bg-saffron/10 hover:border-saffron transition-colors"
+          >
+            <span
+              className={cn(
+                "font-lyric text-[13px] flex-1 truncate transition-colors",
+                sg.status === "active"
+                  ? "text-earth-deep group-hover/sub:text-ink"
+                  : "text-earth-mid line-through",
+              )}
+            >
+              ↳ {sg.title}
+            </span>
+            <span className="font-pressure-caps text-[9px] tracking-wider text-earth-mid shrink-0">
+              {GOAL_SHAPE_LABEL[sg.shape]}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   )
 }
 

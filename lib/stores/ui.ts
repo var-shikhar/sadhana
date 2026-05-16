@@ -23,6 +23,13 @@ interface UIState {
   glossSeen: Record<string, number>;
   bumpGloss: (term: string) => void;
   glossCount: (term: string) => number;
+
+  /** Goals list — whether sub-tasks are revealed under each top-level row.
+   *  Persisted so the user doesn't have to flip the toggle every visit.
+   *  Will eventually move into the user's Practice settings, but localStorage
+   *  is a fine staging spot until then. */
+  goalsShowSubGoals: boolean;
+  setGoalsShowSubGoals: (v: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -37,6 +44,9 @@ export const useUIStore = create<UIState>()(
           glossSeen: { ...s.glossSeen, [term]: (s.glossSeen[term] ?? 0) + 1 },
         })),
       glossCount: (term) => get().glossSeen[term] ?? 0,
+
+      goalsShowSubGoals: false,
+      setGoalsShowSubGoals: (v) => set({ goalsShowSubGoals: v }),
     }),
     {
       name: "sadhana.ui",

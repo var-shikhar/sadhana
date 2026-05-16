@@ -106,14 +106,15 @@ export async function POST(request: Request) {
     starterBlock
   );
 
-  // 5. Mint ephemeral token from OpenAI Realtime.
+  // 5. Mint ephemeral token from OpenAI Realtime (GA API).
   //
-  // The session-create endpoint accepts our system instructions, voice, and
-  // tool spec, then returns a short-lived client_secret the browser uses to
-  // open its WebRTC peer connection. The OPENAI_API_KEY never leaves this
-  // server.
+  // The GA endpoint is /v1/realtime/client_secrets — replaces the Beta
+  // /v1/realtime/sessions, which was disabled in late 2025. The body is
+  // wrapped in a `session` envelope; audio config is nested under
+  // audio.input / audio.output. Response is flat: { value, expires_at }.
+  // The OPENAI_API_KEY never leaves this server.
   const sessionRes = await fetch(
-    "https://api.openai.com/v1/realtime/sessions",
+    "https://api.openai.com/v1/realtime/client_secrets",
     {
       method: "POST",
       headers: {
@@ -121,51 +122,109 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: REALTIME_MODEL,
-        voice: REALTIME_VOICE,
-        modalities: ["audio", "text"],
-        instructions,
-        input_audio_transcription: { model: "whisper-1" },
-        tools: [
-          {
-            type: "function",
-            name: "retrieve_scripture",
-            description:
-              "Retrieve verses from the Vedic-Yogic corpus (Bhagavad Gita, Yoga Sutras, principal Upanishads). Call only when you need verses you don't already have in your STARTER_CONTEXT or earlier tool results. Returns verses you may draw on as inspiration; you must NEVER name them aloud — the user sees them as on-screen cards.",
-            parameters: {
-              type: "object",
-              properties: {
-                query: {
-                  type: "string",
-                  description:
-                    "A semantic query — what is the user really asking about? Aim for 5–15 words.",
-                },
-                why: {
-                  type: "string",
-                  description:
-                    "One short line explaining why this retrieval is needed now (logged for our metrics).",
-                },
-              },
-              required: ["query"],
+        session: {
+          type: "realtime",
+          model: REALTIME_MODEL,
+          instructions,
+          audio: {
+            input: {
+              transcription: { model: "whisper-1" },
+            },
+            output: {
+              voice: REALTIME_VOICE,
             },
           },
-        ],
+          tools: [
+            {
+              type: "function",
+              name: "retrieve_scripture",
+              description:
+                "Retrieve verses from the Vedic-Yogic corpus (Bhagavad Gita, Yoga Sutras, principal Upanishads). Call only when you need verses you don't already have in your STARTER_CONTEXT or earlier tool results. Returns verses you may draw on as inspiration; you must NEVER name them aloud — the user sees them as on-screen cards.",
+              parameters: {
+                type: "object",
+                properties: {
+                  query: {
+                    type: "string",
+                    description:
+                      "A semantic query — what is the user really asking about? Aim for 5–15 words.",
+                  },
+                  why: {
+                    type: "string",
+                    description:
+                      "One short line explaining why this retrieval is needed now (logged for our metrics).",
+                  },
+                },
+                required: ["query"],
+              },
+            },
+          ],
+        },
       }),
     }
   );
 
   if (!sessionRes.ok) {
     const text = await sessionRes.text();
+    // Log on the server so you can see the exact OpenAI reply in your
+    // dev terminal — this is the single most useful diagnostic when the
+    // mint fails (wrong model name, no realtime access, etc.).
+    console.error(
+      `[voice/session] OpenAI mint failed: ${sessionRes.status} ${sessionRes.statusText}\n  model=${REALTIME_MODEL} voice=${REALTIME_VOICE}\n  body=${text}`
+    );
+    // Try to extract a human-readable message from OpenAI's JSON envelope.
+    let humanMessage = text;
+    try {
+      const parsed = JSON.parse(text) as {
+        error?: { message?: string; code?: string; type?: string };
+      };
+      if (parsed.error?.message) {
+        humanMessage = parsed.error.message;
+        if (parsed.error.code) {
+          humanMessage = `${parsed.error.code}: ${humanMessage}`;
+        }
+      }
+    } catch {
+      // not JSON — leave as raw text
+    }
     return NextResponse.json(
-      { error: "openai_session_mint_failed", details: text },
+      {
+        error: "openai_session_mint_failed",
+        message: humanMessage,
+        status: sessionRes.status,
+        model: REALTIME_MODEL,
+        voice: REALTIME_VOICE,
+        details: text,
+      },
       { status: 502 }
     );
   }
 
+  // GA returns { value, expires_at } at the top level. Defensive fallback to
+  // the legacy nested shape in case OpenAI flips it back during the rollout.
   const sessionJson = (await sessionRes.json()) as {
-    id: string;
-    client_secret: { value: string; expires_at: number };
+    value?: string;
+    expires_at?: number;
+    client_secret?: { value?: string; expires_at?: number };
   };
+  const ephemeralKey =
+    sessionJson.value ?? sessionJson.client_secret?.value ?? null;
+  const expiresAt =
+    sessionJson.expires_at ?? sessionJson.client_secret?.expires_at ?? 0;
+
+  if (!ephemeralKey) {
+    console.error(
+      "[voice/session] OpenAI returned 200 but no ephemeral key in body:",
+      JSON.stringify(sessionJson)
+    );
+    return NextResponse.json(
+      {
+        error: "openai_session_no_key",
+        message:
+          "OpenAI accepted the request but did not return an ephemeral key.",
+      },
+      { status: 502 }
+    );
+  }
 
   // 6. Persist a usage row up-front (duration starts at 0; /end updates it).
   const callId = randomUUID();
@@ -178,8 +237,8 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     callId,
-    ephemeralKey: sessionJson.client_secret.value,
-    expiresAt: sessionJson.client_secret.expires_at,
+    ephemeralKey,
+    expiresAt,
     model: REALTIME_MODEL,
     voice: REALTIME_VOICE,
     greeting: persona.greeting,

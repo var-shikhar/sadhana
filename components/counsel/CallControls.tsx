@@ -12,6 +12,10 @@ interface CallControlsProps {
   /** True when the user has muted their mic. */
   muted: boolean;
   onToggleMute: () => void;
+  /** When true (call not yet live, ended, or errored), the mute toggle is
+   *  visually faded and non-interactive. The parent gating effect also
+   *  silences the outbound audio track. */
+  disabled?: boolean;
 }
 
 function fmt(sec: number): string {
@@ -25,6 +29,7 @@ export function CallControls({
   capSec,
   muted,
   onToggleMute,
+  disabled = false,
 }: CallControlsProps) {
   const warnThreshold = Math.floor(capSec * 0.8);
   const warning = elapsedSec >= warnThreshold;
@@ -42,13 +47,22 @@ export function CallControls({
       <ButtonBare
         type="button"
         onClick={onToggleMute}
-        aria-label={muted ? "Unmute mic" : "Mute mic"}
+        disabled={disabled}
+        aria-label={
+          disabled
+            ? "Mic disabled (call not connected)"
+            : muted
+              ? "Unmute mic"
+              : "Mute mic"
+        }
         aria-pressed={muted}
         className={cn(
           "w-12 h-12 rounded-full border flex items-center justify-center transition-colors",
-          muted
-            ? "bg-saffron border-saffron text-ivory"
-            : "bg-ink-soft border-earth-mid/40 text-parchment hover:border-saffron/60"
+          disabled
+            ? "bg-ink-soft/40 border-earth-mid/20 text-parchment/30 cursor-not-allowed"
+            : muted
+              ? "bg-saffron border-saffron text-ivory"
+              : "bg-ink-soft border-earth-mid/40 text-parchment hover:border-saffron/60"
         )}
       >
         <svg

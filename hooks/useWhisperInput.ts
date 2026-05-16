@@ -8,12 +8,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * Android-Chrome PWA where Web Speech is broken or absent.
  *
  * Flow:
- *   1. start()  → request mic, begin recording, watch volume for end-of-speech
- *   2. silence ≥ SILENCE_MS after some speech → auto-stop
- *   3. blob   → POST /api/transcribe → onFinalText(text)
+ *   1. start() → request mic, begin recording. The PRIMARY stop is the user
+ *      tapping the mic again. On top of that we run two safety nets:
+ *        - silence ≥ SILENCE_MS (no audio above SILENCE_DB_THRESHOLD) → stop
+ *        - elapsed  ≥ MAX_UTTERANCE_MS                                  → stop
+ *      These cover the case where the user walks away without tapping stop.
+ *   2. stop()  → end recording. `isListening` flips to false IMMEDIATELY so
+ *      the UI no longer shows "listening", and `isTranscribing` flips to true.
+ *   3. blob    → POST /api/transcribe → onFinalText(text) → `isTranscribing`
+ *      flips back to false.
  *
- * No interim transcript (Whisper isn't streaming); the parent should treat
- * `isListening` as "currently capturing or transcribing".
+ * No interim transcript (Whisper isn't streaming). Parents wanting a "thinking"
+ * indicator should read `isTranscribing` and/or `interim === "transcribing…"`.
  */
 
 interface UseWhisperInputOptions {
@@ -25,6 +31,7 @@ interface UseWhisperInputOptions {
 interface UseWhisperInputResult {
   supported: boolean;
   isListening: boolean;
+  isTranscribing: boolean;
   interim: string;
   start: () => void;
   stop: () => void;
@@ -34,10 +41,12 @@ interface UseWhisperInputResult {
 
 // Audio level below this (in dBFS) is treated as silence.
 const SILENCE_DB_THRESHOLD = -45;
-// Auto-stop after this much continuous silence following detected speech.
-const SILENCE_MS = 1500;
-// Hard cap so a stuck mic doesn't bill us forever.
-const MAX_UTTERANCE_MS = 20_000;
+// Auto-stop after this much continuous silence. Triggers if the user goes
+// quiet without tapping stop — also covers the "never spoke at all" case
+// (5s of pure silence from start ⇒ stop).
+const SILENCE_MS = 5_000;
+// Hard safety cap: even if the room is loud, end the recording here.
+const MAX_UTTERANCE_MS = 30_000;
 
 export function useWhisperInput(
   options: UseWhisperInputOptions = {}
@@ -60,6 +69,7 @@ export function useWhisperInput(
 
   const [supported, setSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +80,7 @@ export function useWhisperInput(
   const monitorIdRef = useRef<number | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef(0);
-  const lastSpeechAtRef = useRef(0);
+  const lastAudioAtRef = useRef(0);
   const hasSpokenRef = useRef(false);
 
   useEffect(() => {
@@ -100,6 +110,10 @@ export function useWhisperInput(
   }, []);
 
   const transcribe = useCallback(async (blob: Blob) => {
+    // The microphone is no longer capturing — flip listening off NOW so the
+    // UI stops showing "listening". Switch to the transcribing indicator.
+    setIsListening(false);
+    setIsTranscribing(true);
     setInterim("transcribing…");
     onInterimRef.current?.("transcribing…");
     try {
@@ -122,7 +136,7 @@ export function useWhisperInput(
       setInterim("");
       setError(e instanceof Error ? e.message : "transcribe_failed");
     } finally {
-      setIsListening(false);
+      setIsTranscribing(false);
     }
   }, []);
 
@@ -217,9 +231,14 @@ export function useWhisperInput(
     const buf = new Float32Array(analyser.fftSize);
 
     startedAtRef.current = performance.now();
-    lastSpeechAtRef.current = startedAtRef.current;
+    lastAudioAtRef.current = startedAtRef.current;
     hasSpokenRef.current = false;
 
+    // Monitor loop. The user's tap on the mic is the primary stop signal, but
+    // we ALSO stop in two safety cases so a forgotten mic doesn't run forever:
+    //   • SILENCE_MS continuous silence (covers "user wandered off" AND
+    //     "user never spoke" — they both look like prolonged silence here)
+    //   • MAX_UTTERANCE_MS elapsed regardless of audio
     monitorIdRef.current = window.setInterval(() => {
       const an = analyserRef.current;
       const rec = recorderRef.current;
@@ -234,18 +253,14 @@ export function useWhisperInput(
       const now = performance.now();
       if (db > SILENCE_DB_THRESHOLD) {
         hasSpokenRef.current = true;
-        lastSpeechAtRef.current = now;
+        lastAudioAtRef.current = now;
       }
+      const silentFor = now - lastAudioAtRef.current;
       const elapsed = now - startedAtRef.current;
-      const silenceFor = now - lastSpeechAtRef.current;
-
-      if (
-        (hasSpokenRef.current && silenceFor > SILENCE_MS) ||
-        elapsed > MAX_UTTERANCE_MS
-      ) {
+      if (silentFor > SILENCE_MS || elapsed > MAX_UTTERANCE_MS) {
         stop();
       }
-    }, 60);
+    }, 250);
 
     try {
       mr.start(250);
@@ -287,6 +302,7 @@ export function useWhisperInput(
   return {
     supported,
     isListening,
+    isTranscribing,
     interim,
     start: startSync,
     stop,

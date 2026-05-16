@@ -3,7 +3,7 @@
 --
 -- Idempotent: safe to apply against either
 --   (a) a fresh DB, or
---   (b) a DB where the older supabase/002_reflection_chips.sql already
+--   (b) a DB where the older /002_reflection_chips.sql already
 --       created chip_category + reflection_chips + the reflections.*_chips
 --       columns.
 --

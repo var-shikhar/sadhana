@@ -61,6 +61,10 @@ interface UseWebSpeechInputOptions {
 interface UseWebSpeechInputResult {
   supported: boolean;
   isListening: boolean;
+  /** Web Speech streams results inline — there's no separate "transcribing"
+   *  phase to surface, so this is always false. Kept on the shape so the
+   *  dispatcher in useVoiceInput can pass it through uniformly. */
+  isTranscribing: boolean;
   interim: string;
   start: () => void;
   stop: () => void;
@@ -190,5 +194,14 @@ export function useWebSpeechInput(
     else start();
   }, [isListening, start, stop]);
 
-  return { supported, isListening, interim, start, stop, toggle, error };
+  return {
+    supported,
+    isListening,
+    isTranscribing: false,
+    interim,
+    start,
+    stop,
+    toggle,
+    error,
+  };
 }

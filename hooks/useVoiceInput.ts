@@ -33,6 +33,11 @@ interface UseVoiceInputOptions {
 interface UseVoiceInputResult {
   supported: boolean;
   isListening: boolean;
+  /** True while the Whisper path is waiting on a transcription response.
+   *  Always false on the Web Speech path. Use this to disable mic toggles
+   *  while a request is in flight (otherwise the user can stack recordings
+   *  whose results race). */
+  isTranscribing: boolean;
   interim: string;
   start: () => void;
   stop: () => void;
@@ -104,6 +109,7 @@ export function useVoiceInput(
   return {
     supported: webSpeech.supported || whisper.supported,
     isListening: active.isListening,
+    isTranscribing: active.isTranscribing,
     interim: active.interim,
     error: visibleError,
     start,

@@ -6,8 +6,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, ButtonBare } from "@/components/ui/button"
-import { LabelTiny } from "@/components/gurukul/LabelTiny"
-import { GoldRule } from "@/components/gurukul/GoldRule"
 import { cn } from "@/lib/utils"
 import {
   useAllGoals,
@@ -21,6 +19,7 @@ import {
 import { useCategories } from "@/hooks/useCategories"
 import { TaskMatrix } from "@/components/tasks/TaskMatrix"
 import { MilestonesPanel } from "@/components/goals/MilestonesPanel"
+import { Loader } from "@/components/gurukul/Loader"
 import { queryKeys } from "@/lib/query-keys"
 import {
   GOAL_SHAPES,
@@ -70,8 +69,11 @@ export default function GoalDetailPage({
     null,
   )
   const [statusReason, setStatusReason] = useState("")
-  const [logsOpen, setLogsOpen] = useState(false)
-  const [historyOpen, setHistoryOpen] = useState(false)
+  // The Details overlay holds everything that isn't the day-to-day work:
+  // description, badges, dates, edit, logs, history, status actions,
+  // archive. Pulled out of the inline header so the goal page reads as
+  // "what to do today" rather than a metadata dashboard.
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   // When set, we're showing the activation-cap conflict modal. `pendingStatus`
   // is what the user originally tried to apply (typically "active"); after
@@ -166,11 +168,7 @@ export default function GoalDetailPage({
   }
 
   if (loading) {
-    return (
-      <p className="font-lyric-italic text-earth-mid py-6 text-center">
-        Loading…
-      </p>
-    )
+    return <Loader fullScreen caption="opening the goal…" />
   }
   if (!goal) {
     return (
@@ -198,12 +196,17 @@ export default function GoalDetailPage({
         ← all goals
       </Link>
 
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <header className="space-y-2">
-        <div className="flex items-start gap-3">
+      {/* ── Header (minimal) ─────────────────────────────────────────
+          Just the title, a single lifecycle chip for state-at-a-glance,
+          and an info button that opens the Details overlay. All the
+          metadata, lifecycle actions (pause/complete/archive), edit,
+          logs, and history live inside that overlay — keeps the page
+          focused on what to do today rather than what the goal "is". */}
+      <header className="space-y-1.5">
+        <div className="flex items-start gap-2">
           <h1
             className={cn(
-              "font-lyric text-2xl text-ink flex-1",
+              "font-lyric text-2xl text-ink flex-1 leading-tight",
               goal.status !== "active" && "text-earth-mid line-through",
             )}
           >
@@ -211,161 +214,16 @@ export default function GoalDetailPage({
           </h1>
           <ButtonBare
             type="button"
-            onClick={() => setEditOpen(true)}
-            className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep px-3 py-1.5 shrink-0"
+            onClick={() => setDetailsOpen(true)}
+            aria-label="Goal details"
+            title="Details, dates, status, edit, logs"
+            className="shrink-0 h-7 w-7 rounded-full border border-gold/40 text-earth-mid hover:text-earth-deep hover:bg-ivory-deep flex items-center justify-center font-lyric text-[14px] leading-none transition-colors"
           >
-            Edit
+            ?
           </ButtonBare>
         </div>
-        {goal.description && (
-          <p className="font-lyric-italic text-[13px] text-earth-deep">
-            {goal.description}
-          </p>
-        )}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <LifecycleBadge phase={phase} />
-          <Badge tone={isQuest ? "saffron" : "earth"}>
-            {isQuest ? "Quest" : "Discipline"}
-          </Badge>
-          <Badge tone="earth">{GOAL_SHAPE_LABEL[goal.shape]}</Badge>
-          {categoryTitle && <Badge tone="sage">{categoryTitle}</Badge>}
-          {goal.endDate && (
-            <Badge tone="muted">ends {goal.endDate}</Badge>
-          )}
-        </div>
-
-        {/* Lifecycle hint — readable line spelling out start/end. */}
-        <p className="font-lyric-italic text-[11px] text-earth-mid">
-          {phase === "scheduled"
-            ? `Starts ${formatRelativeFromToday(goal.startDate)} · ${formatHumanDate(goal.startDate)}`
-            : phase === "overdue"
-              ? `Window ended ${goal.endDate ? formatRelativeFromToday(goal.endDate) : ""}`
-              : phase === "due_soon" && goal.endDate
-                ? `Ends ${formatRelativeFromToday(goal.endDate)} · ${formatHumanDate(goal.endDate)}`
-                : `Started ${formatHumanDate(goal.startDate)}${goal.endDate ? ` · ends ${formatHumanDate(goal.endDate)}` : ""}`}
-        </p>
-
-        {/* Inline meta toggles — expand logs / history right here. */}
-        {(logs.length > 0 || history.length > 0) && (
-          <div className="flex items-center gap-3 flex-wrap pt-1">
-            {logs.length > 0 && (
-              <ButtonBare
-                type="button"
-                onClick={() => setLogsOpen((o) => !o)}
-                className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep transition-colors"
-                aria-expanded={logsOpen}
-              >
-                {logsOpen ? "Hide logs" : `View logs (${logs.length})`}
-              </ButtonBare>
-            )}
-            {history.length > 0 && (
-              <ButtonBare
-                type="button"
-                onClick={() => setHistoryOpen((o) => !o)}
-                className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep transition-colors"
-                aria-expanded={historyOpen}
-              >
-                {historyOpen ? "Hide history" : `View history (${history.length})`}
-              </ButtonBare>
-            )}
-          </div>
-        )}
-
-        {logsOpen && logs.length > 0 && (
-          <ul className="space-y-1.5 mt-1">
-            {logs.slice(0, 30).map((l) => (
-              <li
-                key={l.id}
-                className="rounded border border-gold/20 bg-ivory-deep px-3 py-2"
-              >
-                <div className="flex items-baseline gap-2">
-                  <span className="font-pressure-caps text-[10px] text-earth-mid tracking-wider">
-                    {l.date}
-                  </span>
-                  <span className="font-lyric text-[13px] text-ink">
-                    +{l.value}
-                  </span>
-                </div>
-                {l.note && (
-                  <p className="font-lyric-italic text-[12px] text-earth-deep mt-1">
-                    {l.note}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {historyOpen && history.length > 0 && (
-          <ul className="space-y-1.5 mt-1">
-            {history.map((h) => (
-              <li
-                key={h.id}
-                className="rounded border border-gold/20 bg-ivory-deep px-3 py-2"
-              >
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="font-pressure-caps text-[10px] text-saffron tracking-wider">
-                    {h.changeType}
-                  </span>
-                  <span className="font-pressure-caps text-[9px] text-earth-mid">
-                    {new Date(h.createdAt).toLocaleString()}
-                  </span>
-                </div>
-                {(h.fromValue || h.toValue) && (
-                  <p className="font-sans text-[12px] text-earth-deep mt-0.5">
-                    {h.fromValue ? `${h.fromValue} → ` : ""}
-                    {h.toValue ?? "—"}
-                  </p>
-                )}
-                {h.reason && (
-                  <p className="font-lyric-italic text-[12px] text-earth-deep mt-1">
-                    {h.reason}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <LifecycleBadge phase={phase} />
       </header>
-
-      <GoldRule width="section" />
-
-      {/* ── Status actions (lifecycle controls) ─────────────────── */}
-      <section className="flex flex-wrap gap-1.5">
-        {goal.status === "active" || goal.status === "scheduled" ? (
-          <>
-            <ButtonBare
-              type="button"
-              onClick={() => setStatusModalOpen("paused")}
-              className="rounded-full border border-gold/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-earth-deep hover:bg-ivory-deep"
-            >
-              Pause
-            </ButtonBare>
-            <ButtonBare
-              type="button"
-              onClick={() => void changeStatus("completed", null)}
-              className="rounded-full border border-sage/50 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-sage hover:bg-ivory-deep"
-            >
-              Complete
-            </ButtonBare>
-            <ButtonBare
-              type="button"
-              onClick={() => setArchiveOpen(true)}
-              className="rounded-full border border-saffron/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-saffron hover:bg-ivory-deep ml-auto"
-            >
-              Archive
-            </ButtonBare>
-          </>
-        ) : goal.status === "paused" ? (
-          <ButtonBare
-            type="button"
-            onClick={() => void changeStatus("active", null)}
-            className="rounded-full border border-saffron/40 px-2.5 py-1 text-[10px] font-pressure-caps tracking-wider text-saffron hover:bg-ivory-deep"
-          >
-            Resume
-          </ButtonBare>
-        ) : null}
-      </section>
 
       {/* ── Tabs ───────────────────────────────────────────────────
           Top-level goals only — sub-goals have no tabs. Tab set varies by
@@ -517,6 +375,41 @@ export default function GoalDetailPage({
           parentEndDate={goal.endDate}
           defaultCategoryId={goal.categoryId}
           onClose={() => setAddSubOpen(false)}
+        />
+      )}
+
+      {/* ── Details overlay ─────────────────────────────────────────
+          Everything that isn't the day's work — description, badges,
+          dates, edit, logs, history, status actions, archive. Opened
+          from the "?" button in the header. */}
+      {detailsOpen && (
+        <GoalDetailsModal
+          goal={goal}
+          categoryTitle={categoryTitle}
+          logs={logs}
+          history={history}
+          onClose={() => setDetailsOpen(false)}
+          onEdit={() => {
+            setDetailsOpen(false)
+            setEditOpen(true)
+          }}
+          onPause={() => {
+            setDetailsOpen(false)
+            setStatusModalOpen("paused")
+          }}
+          onComplete={() => {
+            setDetailsOpen(false)
+            void changeStatus("completed", null)
+          }}
+          onResume={() => {
+            setDetailsOpen(false)
+            void changeStatus("active", null)
+          }}
+          onArchive={() => {
+            setDetailsOpen(false)
+            setArchiveOpen(true)
+          }}
+          isQuest={isQuest}
         />
       )}
 
@@ -1022,6 +915,274 @@ function EditGoalModal({
             className="text-[10px] font-pressure-caps tracking-wider bg-ink text-ivory rounded-md px-3 py-1.5 disabled:opacity-50"
           >
             {update.isPending ? "Saving…" : "Save"}
+          </ButtonBare>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Goal details modal ───────────────────────────────────────────────────
+
+interface GoalDetailsModalProps {
+  goal: GoalWithProgress
+  categoryTitle: string | null
+  logs: ReturnType<typeof useGoalLogs>["logs"]
+  history: ReturnType<typeof useGoalHistory>["entries"]
+  isQuest: boolean
+  onClose: () => void
+  onEdit: () => void
+  onPause: () => void
+  onComplete: () => void
+  onResume: () => void
+  onArchive: () => void
+}
+
+/**
+ * Holds everything the user doesn't need to see to do today's work but
+ * may want to reach occasionally: full description, metadata badges,
+ * lifecycle dates, logs, audit history, and the destructive-ish
+ * lifecycle actions (pause / complete / resume / archive). Putting these
+ * behind a tap prevents mis-clicks on the foot-gun buttons and keeps
+ * the goal page itself focused on action.
+ */
+function GoalDetailsModal({
+  goal,
+  categoryTitle,
+  logs,
+  history,
+  isQuest,
+  onClose,
+  onEdit,
+  onPause,
+  onComplete,
+  onResume,
+  onArchive,
+}: GoalDetailsModalProps) {
+  const phase = lifecyclePhaseOf(goal)
+  const [logsOpen, setLogsOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+
+  // Lock body scroll while open. Mirrors the other modals on this page.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
+  if (typeof document === "undefined") return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Goal details"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200 max-h-[88vh] overflow-y-auto"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-0.5">
+            <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
+              Details
+            </h3>
+            <p className="font-lyric text-[15px] text-ink leading-snug">
+              {goal.title}
+            </p>
+          </div>
+          <ButtonBare
+            type="button"
+            onClick={onClose}
+            aria-label="Close details"
+            className="shrink-0 text-earth-mid hover:text-earth-deep px-2 py-1 font-lyric text-[16px] leading-none"
+          >
+            ×
+          </ButtonBare>
+        </div>
+
+        {goal.description && (
+          <p className="font-lyric-italic text-[13px] text-earth-deep">
+            {goal.description}
+          </p>
+        )}
+
+        {/* Badges + lifecycle hint */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <LifecycleBadge phase={phase} />
+            <Badge tone={isQuest ? "saffron" : "earth"}>
+              {isQuest ? "Quest" : "Discipline"}
+            </Badge>
+            <Badge tone="earth">{GOAL_SHAPE_LABEL[goal.shape]}</Badge>
+            {categoryTitle && <Badge tone="sage">{categoryTitle}</Badge>}
+          </div>
+
+          <p className="font-lyric-italic text-[11px] text-earth-mid">
+            {phase === "scheduled"
+              ? `Starts ${formatRelativeFromToday(goal.startDate)} · ${formatHumanDate(goal.startDate)}`
+              : phase === "overdue"
+                ? `Window ended ${goal.endDate ? formatRelativeFromToday(goal.endDate) : ""}`
+                : phase === "due_soon" && goal.endDate
+                  ? `Ends ${formatRelativeFromToday(goal.endDate)} · ${formatHumanDate(goal.endDate)}`
+                  : `Started ${formatHumanDate(goal.startDate)}${goal.endDate ? ` · ends ${formatHumanDate(goal.endDate)}` : ""}`}
+          </p>
+        </div>
+
+        <div className="h-px bg-gold/20" />
+
+        {/* Lifecycle actions. Pause/Complete/Resume only show when the
+            transition makes sense for the current status. Archive lives
+            in its own row at the bottom — visually separated because
+            it's the most destructive. */}
+        <div className="space-y-2">
+          <p className="font-pressure-caps text-[9px] tracking-wider text-earth-mid">
+            Actions
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <ButtonBare
+              type="button"
+              onClick={onEdit}
+              className="rounded-full border border-gold/40 px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider text-earth-deep hover:bg-ivory"
+            >
+              Edit
+            </ButtonBare>
+            {(goal.status === "active" || goal.status === "scheduled") && (
+              <>
+                <ButtonBare
+                  type="button"
+                  onClick={onPause}
+                  className="rounded-full border border-gold/40 px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider text-earth-deep hover:bg-ivory"
+                >
+                  Pause
+                </ButtonBare>
+                <ButtonBare
+                  type="button"
+                  onClick={onComplete}
+                  className="rounded-full border border-sage/50 px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider text-sage hover:bg-ivory"
+                >
+                  Mark complete
+                </ButtonBare>
+              </>
+            )}
+            {goal.status === "paused" && (
+              <ButtonBare
+                type="button"
+                onClick={onResume}
+                className="rounded-full border border-saffron/40 px-3 py-1.5 text-[10px] font-pressure-caps tracking-wider text-saffron hover:bg-ivory"
+              >
+                Resume
+              </ButtonBare>
+            )}
+          </div>
+        </div>
+
+        {/* Logs + History — collapsed by default. */}
+        {(logs.length > 0 || history.length > 0) && (
+          <>
+            <div className="h-px bg-gold/20" />
+            <div className="space-y-2">
+              <p className="font-pressure-caps text-[9px] tracking-wider text-earth-mid">
+                Records
+              </p>
+              <div className="flex items-center gap-3 flex-wrap">
+                {logs.length > 0 && (
+                  <ButtonBare
+                    type="button"
+                    onClick={() => setLogsOpen((o) => !o)}
+                    className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep transition-colors"
+                    aria-expanded={logsOpen}
+                  >
+                    {logsOpen ? "Hide logs" : `View logs (${logs.length})`}
+                  </ButtonBare>
+                )}
+                {history.length > 0 && (
+                  <ButtonBare
+                    type="button"
+                    onClick={() => setHistoryOpen((o) => !o)}
+                    className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep transition-colors"
+                    aria-expanded={historyOpen}
+                  >
+                    {historyOpen ? "Hide history" : `View history (${history.length})`}
+                  </ButtonBare>
+                )}
+              </div>
+
+              {logsOpen && logs.length > 0 && (
+                <ul className="space-y-1.5">
+                  {logs.slice(0, 30).map((l) => (
+                    <li
+                      key={l.id}
+                      className="rounded border border-gold/20 bg-ivory px-3 py-2"
+                    >
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-pressure-caps text-[10px] text-earth-mid tracking-wider">
+                          {l.date}
+                        </span>
+                        <span className="font-lyric text-[13px] text-ink">
+                          +{l.value}
+                        </span>
+                      </div>
+                      {l.note && (
+                        <p className="font-lyric-italic text-[12px] text-earth-deep mt-1">
+                          {l.note}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {historyOpen && history.length > 0 && (
+                <ul className="space-y-1.5">
+                  {history.map((h) => (
+                    <li
+                      key={h.id}
+                      className="rounded border border-gold/20 bg-ivory px-3 py-2"
+                    >
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="font-pressure-caps text-[10px] text-saffron tracking-wider">
+                          {h.changeType}
+                        </span>
+                        <span className="font-pressure-caps text-[9px] text-earth-mid">
+                          {new Date(h.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      {(h.fromValue || h.toValue) && (
+                        <p className="font-sans text-[12px] text-earth-deep mt-0.5">
+                          {h.fromValue ? `${h.fromValue} → ` : ""}
+                          {h.toValue ?? "—"}
+                        </p>
+                      )}
+                      {h.reason && (
+                        <p className="font-lyric-italic text-[12px] text-earth-deep mt-1">
+                          {h.reason}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Archive — destructive, set apart from the other actions so it
+            isn't a peer of "Mark complete". Still opens a separate
+            confirm modal before doing anything. */}
+        <div className="h-px bg-gold/20" />
+        <div className="flex justify-end">
+          <ButtonBare
+            type="button"
+            onClick={onArchive}
+            className="text-[10px] font-pressure-caps tracking-wider text-saffron hover:underline"
+          >
+            Archive this goal →
           </ButtonBare>
         </div>
       </div>

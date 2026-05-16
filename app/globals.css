@@ -99,6 +99,54 @@
   --radius: 0.5rem;
 }
 
+/* ─── Palette: restraint ──────────────────────────────────────────
+   Same ivory daylight as gurukul, but the gold-and-saffron chrome
+   recedes. Saffron stays at every existing usage site this round
+   (see spec §3.2 for the decision); only the *tokens* change here.
+   --gold becomes a solid warm-dark so border-gold/30 dims via the
+   Tailwind alpha utility rather than compounding alphas. */
+[data-palette="restraint"] {
+  --ivory: #faf6ec;
+  --ivory-deep: #faf6ec;       /* collapse card surface into page bg */
+  --parchment: #ead5b3;
+  --ink: #1a1208;
+  --ink-soft: #2b1810;
+  --saffron: #c46a1f;
+  --gold: #2a1f12;              /* dark warm hairline (was bright #d4a259) */
+  --sage: #7a8b5c;
+  --indigo-night: #1a1235;
+  --indigo-deep: #0a0518;
+  --earth-mid: #8b6f47;
+  --earth-deep: #5c4022;
+}
+
+/* ─── Palette: focus ──────────────────────────────────────────────
+   Dark mode. Near-black bg, ivory text. Secondary information
+   recedes via low contrast on its own, no DOM change. Saffron is
+   slightly brightened so the single-ember accent still reads
+   against the dark background. --earth-deep is flipped light
+   because it is consumed as a secondary *text* color, which has
+   to remain readable on dark.
+
+   Semantic drift note (see spec §4.4): the token `--ivory`
+   resolves to near-black here. The name lies; the role
+   (page background) is preserved. This is a deliberate shortcut
+   we accept for the experiment phase. */
+[data-palette="focus"] {
+  --ivory: #0e0a06;            /* page background — dark */
+  --ivory-deep: #16100a;       /* slightly raised surfaces */
+  --parchment: #1c1510;
+  --ink: #ede4cf;              /* foreground text */
+  --ink-soft: #d8ccb3;
+  --saffron: #d97a2a;          /* brightened ember (was #c46a1f) */
+  --gold: #a89373;             /* warm-light hairline against dark */
+  --sage: #8fa06d;             /* brightened to read on dark */
+  --indigo-night: #1a1235;
+  --indigo-deep: #0a0518;
+  --earth-mid: #7a6f5c;
+  --earth-deep: #a89373;       /* flipped light — used as text color */
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

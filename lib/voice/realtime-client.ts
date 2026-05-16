@@ -10,7 +10,10 @@ import type { SessionConfig, VoiceVerse } from "./types";
 //   client.sendToolResult(openaiToolCallId, { verses: [...] });
 //   client.disconnect();
 
-const REALTIME_BASE_URL = "https://api.openai.com/v1/realtime";
+// GA endpoint for the browser-side WebRTC SDP exchange. The Beta used the
+// bare /v1/realtime path; the GA introduced /v1/realtime/calls and disabled
+// the old shape in late 2025 alongside the /v1/realtime/sessions deprecation.
+const REALTIME_SDP_URL = "https://api.openai.com/v1/realtime/calls";
 
 export type RealtimeEvent =
   | { type: "connected" }
@@ -75,7 +78,7 @@ export class RealtimeClient {
     await pc.setLocalDescription(offer);
 
     const sdpRes = await fetch(
-      `${REALTIME_BASE_URL}?model=${encodeURIComponent(this.config.model)}`,
+      `${REALTIME_SDP_URL}?model=${encodeURIComponent(this.config.model)}`,
       {
         method: "POST",
         headers: {

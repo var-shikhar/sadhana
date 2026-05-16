@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Cormorant_Garamond, Eczar } from "next/font/google";
 import { Providers } from "./providers";
+import { parsePalette, PALETTE_THEME_COLOR } from "@/lib/palette";
 import "./globals.css";
 
 const ui = Inter({
@@ -28,12 +29,14 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
+const palette = parsePalette(process.env.NEXT_PUBLIC_PALETTE);
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#faf6ec",
+  themeColor: PALETTE_THEME_COLOR[palette],
 };
 
 export default function RootLayout({
@@ -42,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-palette={palette}>
       <body className={`${ui.variable} ${lyric.variable} ${pressure.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
       </body>

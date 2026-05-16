@@ -48,25 +48,64 @@ export function CallEntryButton({ className }: CallEntryButtonProps) {
   }
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
-      <ButtonBare
-        type="button"
-        onClick={startCall}
-        aria-label="Start a voice call with the Acharya"
-        className="text-parchment/60 hover:text-saffron transition-colors flex items-center justify-center w-9 h-9 rounded-full"
+    <div className={cn("flex items-center gap-1.5", className)}>
+      {/* Segmented mode toggle — Text (active here) | Voice (tappable) */}
+      <div
+        role="tablist"
+        aria-label="Counsel mode"
+        className="flex items-center rounded-full border border-earth-mid/30 overflow-hidden bg-ink-soft/40"
       >
-        <svg
-          className="w-5 h-5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        {/* Text mode — active state (we're on /counsel) */}
+        <div
+          role="tab"
+          aria-selected="true"
+          aria-label="Text mode (current)"
+          title="Text mode"
+          className="flex items-center gap-1.5 h-8 px-2.5 bg-saffron/15 text-saffron"
         >
-          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-        </svg>
-      </ButtonBare>
+          <svg
+            className="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span className="font-pressure-caps text-[10px] tracking-[1.5px] leading-none">
+            Text
+          </span>
+        </div>
+        {/* Voice mode — tappable affordance */}
+        <ButtonBare
+          type="button"
+          role="tab"
+          aria-selected="false"
+          onClick={startCall}
+          aria-label="Switch to voice mode"
+          title="Switch to voice mode"
+          className="flex items-center gap-1.5 h-8 px-2.5 text-parchment/55 hover:text-saffron hover:bg-saffron/10 transition-colors border-l border-earth-mid/30"
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="9" y="2" width="6" height="12" rx="3" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+          </svg>
+          <span className="font-pressure-caps text-[10px] tracking-[1.5px] leading-none">
+            Voice
+          </span>
+        </ButtonBare>
+      </div>
       <ButtonBare
         type="button"
         onClick={toggleLang}

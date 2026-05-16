@@ -49,6 +49,43 @@ export function CallScreen({ language }: CallScreenProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sourcesModal, setSourcesModal] = useState<VoiceVerse | null>(null);
 
+  /** Live transcript rendered above the orb. User turns appear when Whisper
+   *  completes; Acharya turns stream in word-by-word via delta events. The
+   *  last entry can be `partial: true` while the Acharya is still speaking. */
+  type LiveEntry = {
+    id: string;
+    role: "user" | "acharya";
+    text: string;
+    partial?: boolean;
+  };
+  const [liveTranscript, setLiveTranscript] = useState<LiveEntry[]>([]);
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll the transcript area to the bottom as new entries land.
+  useEffect(() => {
+    const el = transcriptScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [liveTranscript]);
+
+  /** "Live" = connection is open and we're in an active turn-taking state.
+   *  Mic outbound and the mute control are gated on this. */
+  const isLive =
+    status === "listening" ||
+    status === "acharya_speaking" ||
+    status === "tool_running";
+
+  // Gate outbound audio: keep the track silenced until the call is live AND
+  // the user hasn't muted. Re-runs when status flips so the mic comes alive
+  // exactly at the "Listening…" transition.
+  useEffect(() => {
+    if (!localStream) return;
+    const enabled = isLive && !muted;
+    localStream.getAudioTracks().forEach((t) => {
+      t.enabled = enabled;
+    });
+  }, [localStream, isLive, muted]);
+
   // 1. Boot: request mic, mint session, open WebRTC.
   useEffect(() => {
     let cancelled = false;
@@ -71,10 +108,22 @@ export function CallScreen({ language }: CallScreenProps) {
           body: JSON.stringify({ language }),
         });
         if (!sessRes.ok) {
-          const body = await sessRes.json().catch(() => ({}));
-          throw new Error(
-            body.message || body.error || `session ${sessRes.status}`
-          );
+          const body = (await sessRes.json().catch(() => ({}))) as {
+            message?: string;
+            error?: string;
+            details?: string;
+            model?: string;
+            voice?: string;
+            status?: number;
+          };
+          // Prefer the human-readable message extracted server-side from
+          // OpenAI's error envelope. Fall back through error/details/raw.
+          const reason =
+            body.message ||
+            body.details ||
+            body.error ||
+            `session ${sessRes.status}`;
+          throw new Error(reason);
         }
         const config = (await sessRes.json()) as SessionConfig;
         if (cancelled) return;
@@ -100,10 +149,42 @@ export function CallScreen({ language }: CallScreenProps) {
                 text: evt.text,
                 at: Date.now(),
               });
+              setLiveTranscript((prev) => [
+                ...prev,
+                {
+                  id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                  role: "user",
+                  text: evt.text,
+                },
+              ]);
               setStatus("acharya_speaking");
               return;
             case "response_started":
               setStatus("acharya_speaking");
+              return;
+            case "acharya_transcript_delta":
+              // Stream tokens into the most recent partial Acharya entry,
+              // or create a new partial entry if there isn't one yet.
+              setLiveTranscript((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.role === "acharya" && last.partial) {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    ...last,
+                    text: last.text + evt.delta,
+                  };
+                  return updated;
+                }
+                return [
+                  ...prev,
+                  {
+                    id: `a-${evt.responseId}`,
+                    role: "acharya",
+                    text: evt.delta,
+                    partial: true,
+                  },
+                ];
+              });
               return;
             case "acharya_transcript_done":
               turnsRef.current.push({
@@ -113,6 +194,30 @@ export function CallScreen({ language }: CallScreenProps) {
                 citations: pendingCitationsRef.current.length
                   ? pendingCitationsRef.current.map(voiceVerseToRetrieved)
                   : undefined,
+              });
+              // Finalize any in-progress entry for this response; if no
+              // deltas arrived (the model may emit only `.done` for a short
+              // turn), push a fresh final entry instead.
+              setLiveTranscript((prev) => {
+                const targetId = `a-${evt.responseId}`;
+                const idx = prev.findIndex((e) => e.id === targetId);
+                if (idx === -1) {
+                  return [
+                    ...prev,
+                    {
+                      id: targetId,
+                      role: "acharya",
+                      text: evt.text,
+                    },
+                  ];
+                }
+                const updated = [...prev];
+                updated[idx] = {
+                  ...updated[idx],
+                  text: evt.text,
+                  partial: false,
+                };
+                return updated;
               });
               pendingCitationsRef.current = [];
               setStatus("listening");
@@ -138,6 +243,13 @@ export function CallScreen({ language }: CallScreenProps) {
         const msg = e instanceof Error ? e.message : "Call failed to start";
         setErrorMessage(msg);
         setStatus("ended");
+        // Release the mic if we acquired it before the failure — otherwise
+        // the browser's recording indicator stays on and the user sees a
+        // hot mic for a call that never connected.
+        setLocalStream((current) => {
+          current?.getTracks().forEach((t) => t.stop());
+          return null;
+        });
       }
     })();
     return () => {
@@ -166,13 +278,15 @@ export function CallScreen({ language }: CallScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // 3. Cleanup on unmount
+  // 3. Cleanup on unmount — tear down resources only (NO navigation).
+  //
+  // Important: this fires on React StrictMode's dev double-mount too. Doing
+  // anything here that calls router.replace would instantly bounce the user
+  // back to /counsel the moment they entered the call. Navigation belongs
+  // only in explicit user end-actions (back arrow, end button, cap timer).
   useEffect(() => {
     return () => {
-      // Best-effort: end the call cleanly if the user navigated away.
-      if (!endingRef.current) {
-        void endCall().catch(() => undefined);
-      }
+      void teardownResources().catch(() => undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -211,7 +325,13 @@ export function CallScreen({ language }: CallScreenProps) {
     }
   }
 
-  async function endCall() {
+  /** Resource cleanup. Idempotent. Safe to call on unmount or end-action.
+   *  Does NOT navigate — that's the caller's job.
+   *
+   *  Persists transcript to localStorage, POSTs duration to /end, tears
+   *  down peer connection and mic. Guarded so it only fires once.
+   */
+  async function teardownResources() {
     if (endingRef.current) return;
     endingRef.current = true;
 
@@ -220,12 +340,12 @@ export function CallScreen({ language }: CallScreenProps) {
       ? Math.floor((Date.now() - startedAtRef.current) / 1000)
       : 0;
 
-    // 1. Persist transcript locally
+    // 1. Persist transcript locally (only if we actually had a conversation)
     if (turnsRef.current.length > 0) {
       appendVoiceTranscript(turnsRef.current, durationSec);
     }
 
-    // 2. Tell server about the duration
+    // 2. Tell server about the duration (only if we got far enough to mint)
     if (callIdRef.current) {
       await fetch("/api/counsel/voice/end", {
         method: "POST",
@@ -244,16 +364,21 @@ export function CallScreen({ language }: CallScreenProps) {
     monitorRef.current?.dispose();
     monitorRef.current = null;
     localStream?.getTracks().forEach((t) => t.stop());
+  }
 
+  /** User-initiated end: tear down resources, then navigate back to /counsel. */
+  async function endCall() {
+    await teardownResources();
     setStatus("ended");
     router.replace("/counsel");
   }
 
   function toggleMute() {
+    // No-op when the call isn't live — the gating effect above is the
+    // authority on whether tracks are enabled; toggle just flips intent.
+    if (!isLive) return;
     if (!localStream) return;
-    const next = !muted;
-    localStream.getAudioTracks().forEach((t) => (t.enabled = !next));
-    setMuted(next);
+    setMuted((m) => !m);
   }
 
   return (
@@ -308,13 +433,65 @@ export function CallScreen({ language }: CallScreenProps) {
         </ButtonBare>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center gap-10 pb-32">
-        <VoiceOrb
-          remoteStream={remoteStream}
-          localStream={localStream}
-          size={320}
-        />
-        <CallStatus status={status} language={language} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Live transcript — what was said, on a live basis */}
+        <div
+          ref={transcriptScrollRef}
+          className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-3"
+        >
+          {liveTranscript.length === 0 && status === "connecting" && (
+            <p className="text-center text-parchment/30 font-lyric-italic text-sm mt-8">
+              {language === "hi"
+                ? "जुड़ रहा है…"
+                : "Connecting…"}
+            </p>
+          )}
+          {liveTranscript.map((entry) =>
+            entry.role === "user" ? (
+              <div key={entry.id} className="flex justify-end animate-bubble-in">
+                <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-saffron/90 text-ivory px-3.5 py-2 shadow-sm">
+                  <p className="font-lyric text-sm leading-snug">
+                    {entry.text}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div key={entry.id} className="flex justify-start animate-bubble-in">
+                <div
+                  className={
+                    "max-w-[88%] rounded-2xl rounded-tl-sm border px-3.5 py-2 shadow-sm bg-ink-soft/80 border-earth-mid/40 text-parchment"
+                  }
+                >
+                  <p className="font-lyric text-sm leading-relaxed">
+                    {entry.text}
+                    {entry.partial && (
+                      <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-saffron/70 animate-pulse" />
+                    )}
+                  </p>
+                </div>
+              </div>
+            )
+          )}
+          <style>{`
+            @keyframes bubble-in {
+              from { opacity: 0; transform: translateY(4px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-bubble-in {
+              animation: bubble-in 220ms ease-out both;
+            }
+          `}</style>
+        </div>
+
+        {/* Orb + status — sits below the transcript */}
+        <div className="flex flex-col items-center justify-center gap-3 pt-2 pb-28">
+          <VoiceOrb
+            remoteStream={remoteStream}
+            localStream={localStream}
+            size={200}
+          />
+          <CallStatus status={status} language={language} />
+        </div>
       </div>
 
       {/* Hidden audio element to render Acharya's voice */}
@@ -340,6 +517,7 @@ export function CallScreen({ language }: CallScreenProps) {
           capSec={MAX_CALL_SECONDS}
           muted={muted}
           onToggleMute={toggleMute}
+          disabled={!isLive}
         />
       </div>
 

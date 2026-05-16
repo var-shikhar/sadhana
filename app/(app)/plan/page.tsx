@@ -1,12 +1,16 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
+import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button, ButtonBare } from "@/components/ui/button"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
 import { GoldRule } from "@/components/gurukul/GoldRule"
 import { HabitDot } from "@/components/gurukul/HabitDot"
+import { Loader } from "@/components/gurukul/Loader"
+import { OmGlyph } from "@/components/gurukul/OmGlyph"
 import { cn } from "@/lib/utils"
 import { useAllGoals } from "@/hooks/useGoals"
 import { useAffirmations } from "@/hooks/useAffirmations"
@@ -110,6 +114,32 @@ export default function PlanPage() {
   ].filter((g) => g.progress.isMet).length
 
   const hasActiveAffirmation = affirmations.some((a) => a.isActive)
+  const activeAffirmationCount = affirmations.filter((a) => a.isActive).length
+
+  const router = useRouter()
+  const [recitalModalOpen, setRecitalModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (!recitalModalOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [recitalModalOpen])
+
+  function openRecitalModal() {
+    setRecitalModalOpen(true)
+  }
+
+  function closeRecitalModal() {
+    setRecitalModalOpen(false)
+  }
+
+  function beginRecital() {
+    setRecitalModalOpen(false)
+    router.push("/settings/affirmations/practice")
+  }
 
   async function logProgress(goalId: string, done: boolean, value = 1) {
     const url = done
@@ -125,11 +155,7 @@ export default function PlanPage() {
   }
 
   if (loading) {
-    return (
-      <p className="font-lyric-italic text-earth-mid py-6 text-center">
-        Loading…
-      </p>
-    )
+    return <Loader fullScreen caption="gathering today’s plan…" />
   }
 
   return (
@@ -154,12 +180,13 @@ export default function PlanPage() {
       <section className="space-y-2">
         <LabelTiny>Mantra · before you begin</LabelTiny>
         {hasActiveAffirmation ? (
-          <Link
-            href="/settings/affirmations/practice"
+          <ButtonBare
+            type="button"
+            onClick={openRecitalModal}
             className="block w-full text-center bg-saffron text-ivory rounded-md px-4 py-2.5 text-[11px] font-pressure-caps tracking-[3px] shadow-[0_2px_8px_rgba(196,106,31,0.25)] hover:bg-saffron/90 transition-colors"
           >
             Begin recital →
-          </Link>
+          </ButtonBare>
         ) : (
           <div className="rounded border border-gold/30 bg-ivory-deep p-4 text-center">
             <p className="font-lyric-italic text-[12px] text-earth-mid mb-2">
@@ -292,6 +319,62 @@ export default function PlanPage() {
           </ul>
         </section>
       )}
+
+      {recitalModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Begin recital"
+            onClick={closeRecitalModal}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-linear-to-b from-ivory to-parchment p-6 space-y-5 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200 text-center"
+            >
+              <div className="flex justify-center">
+                <OmGlyph size={36} tone="saffron" />
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="font-lyric text-2xl text-ink leading-snug">
+                  Speak each one.
+                </p>
+                <p className="font-lyric-italic text-sm text-earth-deep max-w-xs mx-auto">
+                  {activeAffirmationCount} affirmation
+                  {activeAffirmationCount === 1 ? "" : "s"}, shuffled. Read each
+                  aloud — the page advances when you&apos;ve said it.
+                </p>
+              </div>
+
+              <p className="font-lyric-italic text-[11px] text-earth-mid max-w-xs mx-auto">
+                Tap the mic to start speaking, then tap again to stop. The next
+                affirmation appears once you&apos;ve said the current one
+                correctly. We&apos;ll ask for microphone access the first time.
+              </p>
+
+              <div className="flex items-center justify-center gap-3 pt-1">
+                <ButtonBare
+                  type="button"
+                  onClick={closeRecitalModal}
+                  className="text-[10px] font-pressure-caps tracking-wider text-earth-mid hover:text-earth-deep px-3 py-1.5"
+                >
+                  Not now
+                </ButtonBare>
+                <ButtonBare
+                  type="button"
+                  onClick={beginRecital}
+                  className="text-[11px] font-pressure-caps tracking-[3px] bg-saffron text-ivory rounded-md px-5 py-2 shadow-[0_2px_8px_rgba(196,106,31,0.25)]"
+                >
+                  Begin
+                </ButtonBare>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
