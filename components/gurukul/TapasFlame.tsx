@@ -145,7 +145,7 @@ function FlameSVG({ size, reducedMotion, className, style }: FlameSVGProps) {
           <radialGradient id="tapas-outer" cx="50%" cy="70%" r="60%">
             <stop offset="0%" stopColor="#ffe4b3" />
             <stop offset="35%" stopColor="#f29a3a" />
-            <stop offset="75%" stopColor="#c46a1f" />
+            <stop offset="75%" style={{ stopColor: "var(--saffron)" }} />
             <stop offset="100%" stopColor="#7a3a0e" stopOpacity="0.5" />
           </radialGradient>
           <radialGradient id="tapas-core" cx="50%" cy="65%" r="50%">
@@ -220,15 +220,22 @@ function FlameSVG({ size, reducedMotion, className, style }: FlameSVGProps) {
         />
 
         {/* terracotta diya */}
-        <ellipse cx="40" cy="115" rx="22" ry="2.5" fill="#1a1208" opacity="0.4" />
+        <ellipse
+          cx="40"
+          cy="115"
+          rx="22"
+          ry="2.5"
+          style={{ fill: "var(--ink)" }}
+          opacity="0.4"
+        />
         <path
           d="M 16 115 Q 40 123 64 115 L 64 119 Q 40 127 16 119 Z"
-          fill="#5c2e0e"
+          style={{ fill: "var(--earth-deep)" }}
         />
         <path
           d="M 18 116 Q 40 120 62 116"
           fill="none"
-          stroke="#d4a259"
+          style={{ stroke: "var(--gold)" }}
           strokeWidth="0.8"
           opacity="0.8"
         />
@@ -272,7 +279,7 @@ function FlameSVG({ size, reducedMotion, className, style }: FlameSVGProps) {
         }
         .flame-spark-a { animation: tapas-spark-rise 3s ease-out infinite; transform: translateX(-4px); }
         .flame-spark-b { animation: tapas-spark-rise 3.6s ease-out infinite 1s; background: #ffe4b3; transform: translateX(2px); }
-        .flame-spark-c { animation: tapas-spark-rise 4.0s ease-out infinite 2s; background: #c46a1f; transform: translateX(-1px); }
+        .flame-spark-c { animation: tapas-spark-rise 4.0s ease-out infinite 2s; background: var(--saffron); transform: translateX(-1px); }
         .flame-spark-d { animation: tapas-spark-rise 3.2s ease-out infinite 1.6s; transform: translateX(5px); }
       `}</style>
     </div>

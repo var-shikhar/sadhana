@@ -9,6 +9,7 @@ import { CHIP_CATEGORY_META, CHIP_CATEGORY_ORDER } from "@/types"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
 import { ButtonBare } from "@/components/ui/button"
 import { GrowthOrbit } from "@/components/gurukul/GrowthOrbit"
+import { Skeleton } from "@/components/gurukul/Skeleton"
 import { DaySummary } from "./DaySummary"
 import { useCounselStore } from "@/lib/stores/counsel"
 import { useGrowthHistory } from "@/hooks/useGrowthIndex"
@@ -298,9 +299,13 @@ function PracticeSummaryPreview() {
       </div>
 
       {loading ? (
-        <p className="font-lyric-italic text-[11px] text-earth-mid text-center py-4">
-          Loading…
-        </p>
+        <div className="flex items-center gap-4">
+          <Skeleton circle className="h-16 w-16" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+        </div>
       ) : (
         <div className="flex items-center gap-4">
           <GrowthOrbit

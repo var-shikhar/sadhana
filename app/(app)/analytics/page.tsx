@@ -10,6 +10,7 @@ import { format, subDays } from "date-fns";
 import { GrowthOrbit } from "@/components/gurukul/GrowthOrbit";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
+import { Skeleton } from "@/components/gurukul/Skeleton";
 
 export default function AnalyticsPage() {
   const today = format(new Date(), "yyyy-MM-dd");
@@ -85,9 +86,7 @@ export default function AnalyticsPage() {
         </CardHeader>
         <CardContent>
           {recentLoading ? (
-            <div className="flex h-48 items-center justify-center font-lyric-italic text-sm text-earth-mid">
-              Loading...
-            </div>
+            <Skeleton className="h-48 w-full" />
           ) : (
             <GrowthCurve scores={recentScores} />
           )}
@@ -102,9 +101,7 @@ export default function AnalyticsPage() {
         </CardHeader>
         <CardContent>
           {allLoading ? (
-            <div className="flex h-24 items-center justify-center font-lyric-italic text-sm text-earth-mid">
-              Loading...
-            </div>
+            <Skeleton className="h-24 w-full" />
           ) : (
             <CalendarHeatmap scores={allScores} />
           )}

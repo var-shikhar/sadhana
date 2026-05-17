@@ -1,12 +1,14 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
+import { cookies } from "next/headers";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { VastuGrid } from "@/components/ornament/VastuGrid";
+import { SignOutButton } from "@/components/settings/SignOutButton";
+import { PaletteToggle } from "@/components/settings/PaletteToggle";
+import {
+  PALETTE_COOKIE_NAME,
+  resolvePalette,
+} from "@/lib/palette";
 
 const SETTINGS_ITEMS: Array<{
   href: string;
@@ -35,14 +37,11 @@ const SETTINGS_ITEMS: Array<{
   },
 ];
 
-export default function SettingsPage() {
-  const router = useRouter();
-
-  async function handleSignOut() {
-    await authClient.signOut();
-    router.push("/login");
-    router.refresh();
-  }
+export default async function SettingsPage() {
+  const cookieStore = await cookies();
+  const cookieValue = cookieStore.get(PALETTE_COOKIE_NAME)?.value;
+  const activePalette = resolvePalette(cookieValue, process.env.NEXT_PUBLIC_PALETTE);
+  const showPaletteToggle = process.env.NODE_ENV === "development";
 
   return (
     <div className="space-y-6 py-2 relative">
@@ -84,9 +83,14 @@ export default function SettingsPage() {
 
       <GoldRule width="section" />
 
-      <Button variant="outline" className="w-full" onClick={handleSignOut}>
-        Sign Out
-      </Button>
+      <SignOutButton />
+
+      {showPaletteToggle && (
+        <>
+          <GoldRule width="section" />
+          <PaletteToggle active={activePalette} />
+        </>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button, ButtonBare } from "@/components/ui/button"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
 import { GoldRule } from "@/components/gurukul/GoldRule"
+import { Loader } from "@/components/gurukul/Loader"
 import { cn } from "@/lib/utils"
 import { queryKeys } from "@/lib/query-keys"
 import {
@@ -422,11 +423,7 @@ export default function ReflectionChipsSettingsPage() {
   ]
 
   if (chipsLoading || groupsLoading) {
-    return (
-      <p className="font-lyric-italic text-earth-mid py-6 text-center">
-        Loading…
-      </p>
-    )
+    return <Loader fullScreen caption="gathering your acts…" />
   }
 
   return (
@@ -458,87 +455,79 @@ export default function ReflectionChipsSettingsPage() {
             centered heading + right-anchored controls. */}
         <LabelTiny className="block text-center">Your acts</LabelTiny>
 
-        <div className="flex items-center justify-end gap-3">
-          <div className="flex gap-1.5 min-w-0 flex-1 justify-end flex-wrap items-center">
-            {/* Category pill group — compact */}
-            <div className="flex flex-wrap rounded-full border border-gold/40 bg-ivory p-0.5 shadow-[0_1px_2px_rgba(196,106,31,0.05)] shrink-0">
-              {CATEGORY_FILTER_ORDER.map((f) => {
-                const isActive = categoryFilter === f
-                const label =
-                  f === "all"
-                    ? "All"
-                    : CHIP_CATEGORY_META[f as ChipCategory].label
-                const count = categoryCounts[f]
-                return (
-                  <ButtonBare
-                    key={f}
-                    type="button"
-                    onClick={() => setCategoryFilter(f)}
-                    className={cn(
-                      "px-2 py-0.5 rounded-full text-[9px] font-pressure-caps tracking-wider transition-all flex items-center gap-1",
-                      isActive
-                        ? "bg-ink text-ivory shadow-sm"
-                        : "text-earth-deep hover:bg-ivory-deep",
-                    )}
-                  >
-                    {f !== "all" && (
-                      <span
-                        className={cn(
-                          "h-1 w-1 rounded-full",
-                          TONE_DOT[f as ChipCategory],
-                        )}
-                      />
-                    )}
-                    <span>{label}</span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* Category pill group — compact, anchored left */}
+          <div className="flex flex-wrap rounded-full border border-gold/40 bg-ivory p-0.5 shadow-[0_1px_2px_rgba(196,106,31,0.05)] shrink-0">
+            {CATEGORY_FILTER_ORDER.map((f) => {
+              const isActive = categoryFilter === f
+              const label =
+                f === "all"
+                  ? "All"
+                  : CHIP_CATEGORY_META[f as ChipCategory].label
+              const count = categoryCounts[f]
+              return (
+                <ButtonBare
+                  key={f}
+                  type="button"
+                  onClick={() => setCategoryFilter(f)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-[9px] font-pressure-caps tracking-wider transition-all flex items-center gap-1",
+                    isActive
+                      ? "bg-ink text-ivory shadow-sm"
+                      : "text-earth-deep hover:bg-ivory-deep",
+                  )}
+                >
+                  {f !== "all" && (
                     <span
                       className={cn(
-                        "tabular-nums text-[8px]",
-                        isActive ? "text-ivory/70" : "text-earth-mid",
+                        "h-1 w-1 rounded-full",
+                        TONE_DOT[f as ChipCategory],
                       )}
-                    >
-                      {count}
-                    </span>
-                  </ButtonBare>
-                )
-              })}
-            </div>
+                    />
+                  )}
+                  <span>{label}</span>
+                  <span
+                    className={cn(
+                      "tabular-nums text-[8px]",
+                      isActive ? "text-ivory/70" : "text-earth-mid",
+                    )}
+                  >
+                    {count}
+                  </span>
+                </ButtonBare>
+              )
+            })}
+          </div>
 
-            {/* Hairline divider */}
-            <span
+          {/* Group select — compact pill with custom chevron, anchored right */}
+          <div className="relative min-w-0 shrink-0">
+            <select
+              value={groupFilter}
+              onChange={(e) =>
+                handleGroupFilterChange(e.target.value as GroupFilter)
+              }
+              className="appearance-none rounded-full border border-gold/40 bg-ivory pl-2.5 pr-6 py-1 text-[9px] font-pressure-caps tracking-wider text-earth-deep outline-none cursor-pointer hover:bg-ivory-deep focus:border-ink/40 transition-colors max-w-40 truncate shadow-[0_1px_2px_rgba(196,106,31,0.05)] w-full"
+            >
+              <option value="all">All · {groupCounts.all}</option>
+              <option value="none">Global · {groupCounts.none}</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} · {groupCounts[g.id] ?? 0}
+                </option>
+              ))}
+            </select>
+            <svg
               aria-hidden="true"
-              className="h-4 w-px bg-linear-to-b from-transparent via-gold/60 to-transparent shrink-0"
-            />
-
-            {/* Group select — compact pill with custom chevron */}
-            <div className="relative min-w-0">
-              <select
-                value={groupFilter}
-                onChange={(e) =>
-                  handleGroupFilterChange(e.target.value as GroupFilter)
-                }
-                className="appearance-none rounded-full border border-gold/40 bg-ivory pl-2.5 pr-6 py-1 text-[9px] font-pressure-caps tracking-wider text-earth-deep outline-none cursor-pointer hover:bg-ivory-deep focus:border-ink/40 transition-colors max-w-40 truncate shadow-[0_1px_2px_rgba(196,106,31,0.05)] w-full"
-              >
-                <option value="all">All · {groupCounts.all}</option>
-                <option value="none">Global · {groupCounts.none}</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name} · {groupCounts[g.id] ?? 0}
-                  </option>
-                ))}
-              </select>
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 12 8"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2.5 text-earth-mid pointer-events-none"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M1 1.5l5 5 5-5" />
-              </svg>
-            </div>
+              viewBox="0 0 12 8"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2.5 text-earth-mid pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M1 1.5l5 5 5-5" />
+            </svg>
           </div>
         </div>
 
@@ -794,6 +783,9 @@ export default function ReflectionChipsSettingsPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={() => {
+              if (!create.isPending) closeAddChipModal()
+            }}
             className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"
@@ -916,6 +908,9 @@ export default function ReflectionChipsSettingsPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={() => {
+              if (!createGroup.isPending) closeAddGroupModal()
+            }}
             className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"
@@ -986,6 +981,7 @@ export default function ReflectionChipsSettingsPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={cancelEdit}
             className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"

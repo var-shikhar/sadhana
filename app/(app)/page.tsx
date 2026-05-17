@@ -19,6 +19,7 @@ import { PrayaschittaBanner } from "@/components/gurukul/PrayaschittaBanner";
 import { SamapanaCard } from "@/components/gurukul/SamapanaCard";
 import { NudgeStack } from "@/components/gurukul/NudgeStack";
 import { TodayGoalsPanel } from "@/components/goals/TodayGoalsPanel";
+import { Loader } from "@/components/gurukul/Loader";
 import { KolamGrid } from "@/components/ornament/KolamGrid";
 import { GrowthOrbit } from "@/components/gurukul/GrowthOrbit";
 import { useGrowthHistory } from "@/hooks/useGrowthIndex";
@@ -51,11 +52,7 @@ export default function HomePage() {
   const loading = habitsLoading || reflectionLoading || vrataLoading || malaLoading;
 
   if (loading) {
-    return (
-      <div className="space-y-6 py-2">
-        <p className="font-lyric-italic text-earth-mid">Loading your practice...</p>
-      </div>
-    );
+    return <Loader fullScreen caption="gathering the day’s practice…" />;
   }
 
   const completed = todayLogs.filter((l) => l.completed).length;

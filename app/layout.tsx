@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Cormorant_Garamond, Eczar } from "next/font/google";
+import { cookies } from "next/headers";
 import { Providers } from "./providers";
-import { parsePalette, PALETTE_THEME_COLOR } from "@/lib/palette";
+import {
+  PALETTE_COOKIE_NAME,
+  PALETTE_THEME_COLOR,
+  resolvePalette,
+} from "@/lib/palette";
 import "./globals.css";
 
 const ui = Inter({
@@ -29,21 +34,29 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
-const palette = parsePalette(process.env.NEXT_PUBLIC_PALETTE);
+async function readPalette() {
+  const cookieStore = await cookies();
+  const cookieValue = cookieStore.get(PALETTE_COOKIE_NAME)?.value;
+  return resolvePalette(cookieValue, process.env.NEXT_PUBLIC_PALETTE);
+}
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: PALETTE_THEME_COLOR[palette],
-};
+export async function generateViewport(): Promise<Viewport> {
+  const palette = await readPalette();
+  return {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    themeColor: PALETTE_THEME_COLOR[palette],
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const palette = await readPalette();
   return (
     <html lang="en" data-palette={palette}>
       <body className={`${ui.variable} ${lyric.variable} ${pressure.variable} font-sans antialiased`}>

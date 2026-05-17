@@ -19,6 +19,7 @@ import {
 import { useCounselStore } from "@/lib/stores/counsel";
 import { MAX_CALL_SECONDS } from "@/lib/voice/constants";
 import { ButtonBare } from "@/components/ui/button";
+import { OmGlyph } from "@/components/gurukul/OmGlyph";
 
 interface CallScreenProps {
   language: "en" | "hi";
@@ -143,42 +144,76 @@ export function CallScreen({ language }: CallScreenProps) {
               startedAtRef.current = Date.now();
               client.triggerGreeting();
               return;
+            case "user_audio_committed":
+              // Lock in the user's bubble position the moment they finish
+              // speaking — well before the transcript arrives. Without this,
+              // the Acharya's response (which starts almost immediately)
+              // would slot in BEFORE the user's transcribed bubble.
+              setLiveTranscript((prev) => [
+                ...prev,
+                {
+                  id: `u-${evt.itemId}`,
+                  role: "user",
+                  text: "…",
+                  partial: true,
+                },
+              ]);
+              return;
             case "user_transcript":
               turnsRef.current.push({
                 role: "user",
                 text: evt.text,
                 at: Date.now(),
               });
-              setLiveTranscript((prev) => [
-                ...prev,
-                {
-                  id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                  role: "user",
-                  text: evt.text,
-                },
-              ]);
-              setStatus("acharya_speaking");
-              return;
-            case "response_started":
-              setStatus("acharya_speaking");
-              return;
-            case "acharya_transcript_delta":
-              // Stream tokens into the most recent partial Acharya entry,
-              // or create a new partial entry if there isn't one yet.
+              // Fill in the placeholder that user_audio_committed created.
+              // Fallback to append-at-end if no placeholder exists (e.g., the
+              // committed event was missed for whatever reason).
               setLiveTranscript((prev) => {
-                const last = prev[prev.length - 1];
-                if (last && last.role === "acharya" && last.partial) {
+                const placeholderId = `u-${evt.itemId}`;
+                const idx = prev.findIndex((e) => e.id === placeholderId);
+                if (idx !== -1) {
                   const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    ...last,
-                    text: last.text + evt.delta,
+                  updated[idx] = {
+                    ...updated[idx],
+                    text: evt.text,
+                    partial: false,
                   };
                   return updated;
                 }
                 return [
                   ...prev,
                   {
-                    id: `a-${evt.responseId}`,
+                    id: placeholderId,
+                    role: "user",
+                    text: evt.text,
+                  },
+                ];
+              });
+              setStatus("acharya_speaking");
+              return;
+            case "response_started":
+              setStatus("acharya_speaking");
+              return;
+            case "acharya_transcript_delta":
+              // Deterministic ID-based lookup. Every delta for a given
+              // response.id ALWAYS routes to the same entry (whether the
+              // entry is partial or already finalized), so duplicate event
+              // streams (Beta + GA both firing) cannot create two entries.
+              setLiveTranscript((prev) => {
+                const targetId = `a-${evt.responseId}`;
+                const idx = prev.findIndex((e) => e.id === targetId);
+                if (idx !== -1) {
+                  const updated = [...prev];
+                  updated[idx] = {
+                    ...updated[idx],
+                    text: updated[idx].text + evt.delta,
+                  };
+                  return updated;
+                }
+                return [
+                  ...prev,
+                  {
+                    id: targetId,
                     role: "acharya",
                     text: evt.delta,
                     partial: true,
@@ -366,11 +401,20 @@ export function CallScreen({ language }: CallScreenProps) {
     localStream?.getTracks().forEach((t) => t.stop());
   }
 
-  /** User-initiated end: tear down resources, then navigate back to /counsel. */
+  /** User-initiated end: tear down resources, then go back to whatever
+   *  page the user was on BEFORE they entered Counsel. The entry to voice
+   *  uses router.replace (see CallEntryButton.startCall), which means chat
+   *  and voice share the same history slot — so one back-press here skips
+   *  past chat entirely. Falls back to "/" if there's no prior entry
+   *  (deep-link / refresh into /counsel/call). */
   async function endCall() {
     await teardownResources();
     setStatus("ended");
-    router.replace("/counsel");
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.replace("/");
+    }
   }
 
   function toggleMute() {
@@ -449,23 +493,25 @@ export function CallScreen({ language }: CallScreenProps) {
           {liveTranscript.map((entry) =>
             entry.role === "user" ? (
               <div key={entry.id} className="flex justify-end animate-bubble-in">
-                <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-saffron/90 text-ivory px-3.5 py-2 shadow-sm">
-                  <p className="font-lyric text-sm leading-snug">
+                <div className="max-w-[78%] rounded-2xl rounded-tr-sm bg-saffron text-ivory px-4 py-2.5 shadow-sm">
+                  <p className="font-lyric text-base leading-snug">
                     {entry.text}
                   </p>
                 </div>
               </div>
             ) : (
-              <div key={entry.id} className="flex justify-start animate-bubble-in">
-                <div
-                  className={
-                    "max-w-[88%] rounded-2xl rounded-tl-sm border px-3.5 py-2 shadow-sm bg-ink-soft/80 border-earth-mid/40 text-parchment"
-                  }
-                >
-                  <p className="font-lyric text-sm leading-relaxed">
+              <div
+                key={entry.id}
+                className="flex items-start gap-3 max-w-[88%] animate-bubble-in"
+              >
+                <div className="shrink-0 w-9 h-9 rounded-full border border-saffron/30 bg-saffron/10 flex items-center justify-center">
+                  <OmGlyph size={18} tone="saffron" />
+                </div>
+                <div className="flex-1 rounded-2xl rounded-tl-sm border border-earth-mid/40 bg-ink-soft px-4 py-3 shadow-sm">
+                  <p className="font-lyric text-base leading-relaxed text-ivory">
                     {entry.text}
                     {entry.partial && (
-                      <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-saffron/70 animate-pulse" />
+                      <span className="inline-block w-0.5 h-4 ml-1 align-middle bg-saffron/80 animate-pulse" />
                     )}
                   </p>
                 </div>

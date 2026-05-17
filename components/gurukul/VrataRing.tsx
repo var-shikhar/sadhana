@@ -58,7 +58,7 @@ export function VrataRing({
           cy={cy}
           r={radius}
           fill="none"
-          stroke="#d4b88a"
+          style={{ stroke: "var(--gold)" }}
           strokeWidth="2"
           opacity="0.4"
         />
@@ -68,13 +68,15 @@ export function VrataRing({
           cy={cy}
           r={radius}
           fill="none"
-          stroke="#c46a1f"
           strokeWidth="3"
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={dashOffset}
           transform={`rotate(-90 ${cx} ${cy})`}
-          style={{ transition: "stroke-dashoffset 600ms ease-out" }}
+          style={{
+            stroke: "var(--saffron)",
+            transition: "stroke-dashoffset 600ms ease-out",
+          }}
         />
       </svg>
 

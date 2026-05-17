@@ -6,17 +6,14 @@ import { Separator } from "@/components/ui/separator";
 import { type PermaPillar, PERMA_LABELS } from "@/types";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
+import { Loader } from "@/components/gurukul/Loader";
 import { KolamGrid } from "@/components/ornament/KolamGrid";
 
 export default function LogPage() {
   const { userHabits, todayLogs, loading, toggleHabit } = useHabits();
 
   if (loading) {
-    return (
-      <div className="space-y-4 py-2">
-        <p className="font-lyric-italic text-earth-mid">Loading your habits...</p>
-      </div>
-    );
+    return <Loader fullScreen caption="gathering today’s offerings…" />;
   }
 
   const completedCount = todayLogs.filter((l) => l.completed).length;

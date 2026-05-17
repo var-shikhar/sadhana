@@ -16,9 +16,9 @@ interface GrowthCurveProps {
   scores: GrowthScore[];
 }
 
-const SAFFRON = "#c46a1f";
-const GOLD = "#d4a259";
-const EARTH_DEEP = "#5c4022";
+const SAFFRON = "var(--saffron)";
+const GOLD = "var(--gold)";
+const EARTH_DEEP = "var(--earth-deep)";
 
 export function GrowthCurve({ scores }: GrowthCurveProps) {
   const data = scores.map((s) => ({

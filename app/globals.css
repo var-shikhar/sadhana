@@ -97,6 +97,22 @@
   --earth-mid: #8b6f47;
   --earth-deep: #5c4022;
   --radius: 0.5rem;
+
+  /* ─── Loader tokens (defaults: gurukul) ────────────────────────────
+     Pulled out so each palette can re-tint the loader without
+     touching the component. See `[data-palette="focus"]` below for
+     the dark-palette overrides that drop the saffron tone in favour
+     of a monochromatic ivory/earth treatment. */
+  --loader-petal-outer: var(--saffron);
+  --loader-petal-middle: var(--gold);
+  --loader-petal-inner: var(--sage);
+  --loader-petal-outer-stroke: var(--gold);
+  --loader-bindu: var(--saffron);
+  --loader-bindu-core: var(--ivory);
+  --loader-halo: var(--gold);
+  --loader-overlay-bg: var(--ivory);
+  --loader-caption-base: var(--earth-mid);
+  --loader-caption-shimmer: var(--earth-deep);
 }
 
 /* ─── Palette: restraint ──────────────────────────────────────────
@@ -121,30 +137,48 @@
 }
 
 /* ─── Palette: focus ──────────────────────────────────────────────
-   Dark mode. Near-black bg, ivory text. Secondary information
-   recedes via low contrast on its own, no DOM change. Saffron is
-   slightly brightened so the single-ember accent still reads
-   against the dark background. --earth-deep is flipped light
-   because it is consumed as a secondary *text* color, which has
-   to remain readable on dark.
+   Pure monochrome dark mode. Black background, white text, neutral
+   greys throughout. No warm tones — no saffron, no gold, no sage
+   greens, no earth browns. The token `--saffron` resolves to pure
+   white so every saffron usage site (CTA bg, active quest border,
+   +1 buttons) renders as crisp ink-on-white instead of competing
+   with the black background through warm chroma.
 
-   Semantic drift note (see spec §4.4): the token `--ivory`
-   resolves to near-black here. The name lies; the role
-   (page background) is preserved. This is a deliberate shortcut
-   we accept for the experiment phase. */
+   Semantic drift note (see spec §4.4): the token names `--ivory`,
+   `--saffron`, `--gold`, `--sage`, `--earth-*` all lie in this
+   palette — their *roles* are preserved (page bg, accent, border,
+   completion, secondary text) but their *colors* are neutral, not
+   earth-toned. Deliberate shortcut for the experiment phase; the
+   rename to semantic tokens (--surface-bg etc.) lands later if
+   focus wins. */
 [data-palette="focus"] {
-  --ivory: #0e0a06;            /* page background — dark */
-  --ivory-deep: #16100a;       /* slightly raised surfaces */
-  --parchment: #1c1510;
-  --ink: #ede4cf;              /* foreground text */
-  --ink-soft: #d8ccb3;
-  --saffron: #d97a2a;          /* brightened ember (was #c46a1f) */
-  --gold: #a89373;             /* warm-light hairline against dark */
-  --sage: #8fa06d;             /* brightened to read on dark */
-  --indigo-night: #1a1235;
-  --indigo-deep: #0a0518;
-  --earth-mid: #7a6f5c;
-  --earth-deep: #a89373;       /* flipped light — used as text color */
+  --ivory: #0a0a0a;            /* page background — neutral near-black */
+  --ivory-deep: #141414;       /* slightly raised surfaces */
+  --parchment: #cccccc;        /* text color on dark surfaces (e.g. counsel bubbles); was #1c1c1c "faint surface" — flipped light because Counsel components use text-parchment as body text */
+  --ink: #f0f0f0;              /* primary text — near-white */
+  --ink-soft: #cccccc;         /* secondary text */
+  --saffron: #ffffff;          /* pure white — replaces saffron as the accent */
+  --gold: #5a5a5a;             /* mid-neutral grey for borders, further dimmed by /30 */
+  --sage: #909090;             /* completion indicator — neutral grey */
+  --indigo-night: #1a1235;     /* unchanged — rarely used, invisible against bg */
+  --indigo-deep: #0a0518;      /* unchanged */
+  --earth-mid: #a0a0a0;        /* small labels — passes WCAG AA on the dark bg */
+  --earth-deep: #d0d0d0;       /* secondary text — lighter readable grey */
+
+  /* Loader in focus mode is pure greyscale — no warm tones. Petal
+     gradient steps monotonically outer (brightest) → middle → inner
+     using literal greys so the lotus shape reads clean against the
+     black overlay. */
+  --loader-petal-outer: var(--ink);
+  --loader-petal-middle: #b0b0b0;
+  --loader-petal-inner: #707070;
+  --loader-petal-outer-stroke: var(--ink-soft);
+  --loader-bindu: var(--ink);
+  --loader-bindu-core: var(--ivory-deep);
+  --loader-halo: var(--ink-soft);
+  --loader-overlay-bg: var(--ivory);
+  --loader-caption-base: var(--earth-mid);
+  --loader-caption-shimmer: var(--ink);
 }
 
 @media (prefers-reduced-motion: reduce) {

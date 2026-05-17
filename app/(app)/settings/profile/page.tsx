@@ -12,6 +12,7 @@ import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
 import { queryKeys } from "@/lib/query-keys";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
+import { Loader } from "@/components/gurukul/Loader";
 import { cn } from "@/lib/utils";
 
 async function fetchHabits(): Promise<UserHabit[]> {
@@ -150,11 +151,7 @@ export default function ProfileSettingsPage() {
   }
 
   if (profileLoading) {
-    return (
-      <div className="space-y-4 py-2">
-        <p className="font-lyric-italic text-earth-mid">Loading...</p>
-      </div>
-    );
+    return <Loader fullScreen caption="drawing your profile…" />;
   }
 
   return (
@@ -304,6 +301,7 @@ export default function ProfileSettingsPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={closeEdit}
             className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"

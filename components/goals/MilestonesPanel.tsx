@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { Button, ButtonBare } from "@/components/ui/button"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
+import { Skeleton } from "@/components/gurukul/Skeleton"
 import { cn } from "@/lib/utils"
 import {
   useCreateMilestone,
@@ -55,9 +56,11 @@ export function MilestonesPanel({ goalId }: MilestonesPanelProps) {
       </div>
 
       {loading ? (
-        <p className="font-lyric-italic text-earth-mid py-4 text-center text-sm">
-          Loading…
-        </p>
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-4/5" />
+        </div>
       ) : milestones.length === 0 ? (
         <div className="rounded-md border border-gold/30 bg-ivory-deep p-6 text-center space-y-2">
           <p className="font-lyric text-base text-ink">
@@ -289,6 +292,9 @@ function AddMilestoneModal({
 
   return createPortal(
     <div
+      onClick={() => {
+        if (!submitting) onClose()
+      }}
       className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"

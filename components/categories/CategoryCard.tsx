@@ -22,7 +22,8 @@ export function CategoryCard({
   className,
 }: CategoryCardProps) {
   const colorHex =
-    CATEGORY_COLORS.find((c) => c.value === category.color)?.hex ?? "#c46a1f";
+    CATEGORY_COLORS.find((c) => c.value === category.color)?.hex ??
+    "var(--saffron)";
 
   const inner = (
     <div className="flex flex-row items-center gap-3">

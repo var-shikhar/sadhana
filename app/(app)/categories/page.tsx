@@ -10,6 +10,7 @@ import { GoldRule } from "@/components/gurukul/GoldRule"
 import { GuidedExplainer } from "@/components/gurukul/GuidedExplainer"
 import { CategoryCard } from "@/components/categories/CategoryCard"
 import { CategoryForm } from "@/components/categories/CategoryForm"
+import { Loader } from "@/components/gurukul/Loader"
 import { LotusMandala } from "@/components/ornament/LotusMandala"
 import {
   useCategories,
@@ -47,7 +48,7 @@ export default function CategoriesPage() {
   }, [anyOpen])
 
   if (loading) {
-    return <p className="font-lyric-italic text-earth-mid py-6">Loading…</p>
+    return <Loader fullScreen caption="drawing the pillars…" />
   }
 
   const isEmpty = categories.length === 0
@@ -77,7 +78,7 @@ export default function CategoriesPage() {
       {createOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <ModalShell label="Add a category">
+          <ModalShell label="Add a category" onClose={() => setCreateOpen(false)}>
             <div className="space-y-1">
               <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
                 New category
@@ -108,7 +109,7 @@ export default function CategoriesPage() {
       {editing &&
         typeof document !== "undefined" &&
         createPortal(
-          <ModalShell label={`Edit ${editing.title}`}>
+          <ModalShell label={`Edit ${editing.title}`} onClose={() => setEditingId(null)}>
             <div className="space-y-1">
               <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
                 Edit category
@@ -150,19 +151,25 @@ export default function CategoriesPage() {
 
 function ModalShell({
   label,
+  onClose,
   children,
 }: {
   label: string
+  onClose: () => void
   children: React.ReactNode
 }) {
   return (
     <div
+      onClick={onClose}
       className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"
       aria-label={label}
     >
-      <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200 max-h-[88vh] overflow-y-auto">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-200 max-h-[88vh] overflow-y-auto"
+      >
         {children}
       </div>
     </div>
@@ -290,7 +297,8 @@ function StarterGrid({
     <div className="space-y-2">
       {STARTER_CATEGORIES.map((s) => {
         const colorHex =
-          CATEGORY_COLORS.find((c) => c.value === s.color)?.hex ?? "#c46a1f"
+          CATEGORY_COLORS.find((c) => c.value === s.color)?.hex ??
+          "var(--saffron)"
         const adopted = existingTitles?.has(s.title.toLowerCase()) ?? false
         return (
           <Card

@@ -16,6 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { Button, ButtonBare } from "@/components/ui/button"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
+import { Skeleton } from "@/components/gurukul/Skeleton"
 import { cn } from "@/lib/utils"
 import {
   useCreateTask,
@@ -208,9 +209,12 @@ export function TaskMatrix({ goalId, milestoneId }: TaskMatrixProps) {
       </div>
 
       {loading ? (
-        <p className="font-lyric-italic text-earth-mid py-4 text-center text-sm">
-          Loading…
-        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       ) : viewMode === "matrix" ? (
         <DndContext
           sensors={sensors}

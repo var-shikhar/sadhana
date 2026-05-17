@@ -67,8 +67,8 @@ export function TodayGoalsPanel({ className }: TodayGoalsPanelProps) {
       {Array.from(byCat.entries()).map(([catKey, group]) => {
         const colorHex = group.categoryColor
           ? (CATEGORY_COLORS.find((c) => c.value === group.categoryColor)?.hex ??
-            "#c46a1f")
-          : "#7a8b5c";
+            "var(--saffron)")
+          : "var(--sage)";
         const kept = group.rows.filter((r) => r.isMet).length;
 
         const HeaderInner = (

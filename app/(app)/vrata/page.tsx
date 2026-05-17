@@ -13,6 +13,7 @@ import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { PressureLabel } from "@/components/gurukul/PressureLabel";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { VrataRing } from "@/components/gurukul/VrataRing";
+import { Loader } from "@/components/gurukul/Loader";
 import { LotusMandala } from "@/components/ornament/LotusMandala";
 import { VRATA_LENGTHS, type VrataLengthName } from "@/types";
 
@@ -41,9 +42,7 @@ export default function VrataPage() {
   );
 
   if (loading || goalsLoading) {
-    return (
-      <p className="font-lyric-italic text-earth-mid py-6">Loading…</p>
-    );
+    return <Loader fullScreen caption="drawing the vow…" />;
   }
 
   // Active vrata view

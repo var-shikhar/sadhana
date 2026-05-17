@@ -94,7 +94,7 @@ export function ThinkingIndicator({ variant = "light" }: ThinkingIndicatorProps)
           30% { opacity: 1; transform: translateY(-2px); }
         }
         .thinking-dot {
-          color: #c46a1f;
+          color: var(--saffron);
           font-weight: 700;
           font-size: 16px;
           animation: thinking-pulse 1.4s ease-in-out infinite;

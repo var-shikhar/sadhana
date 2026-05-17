@@ -9,6 +9,7 @@ import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { PressureLabel } from "@/components/gurukul/PressureLabel";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { GuidedExplainer } from "@/components/gurukul/GuidedExplainer";
+import { Loader } from "@/components/gurukul/Loader";
 import { NudgeStack } from "@/components/gurukul/NudgeStack";
 import { VastuGrid } from "@/components/ornament/VastuGrid";
 import { useWeek } from "@/hooks/useWeek";
@@ -55,7 +56,7 @@ export default function WeekPage() {
   }, [summary]);
 
   if (loading || !summary) {
-    return <p className="font-lyric-italic text-earth-mid py-6">Loading…</p>;
+    return <Loader fullScreen caption="drawing the week…" />;
   }
 
   function saveReview() {
@@ -282,7 +283,8 @@ function DailyGoalWeekRow({
   days: WeekDay[];
 }) {
   const colorHex =
-    CATEGORY_COLORS.find((c) => c.value === goal.categoryColor)?.hex ?? "#c46a1f";
+    CATEGORY_COLORS.find((c) => c.value === goal.categoryColor)?.hex ??
+    "var(--saffron)";
   return (
     <Card className="flex flex-col gap-2 bg-ivory-deep border-gold/30 p-3">
       <div className="flex items-center gap-2">
@@ -345,7 +347,8 @@ function DaySlot({
 
 function OtherGoalRow({ goal }: { goal: WeekGoalRow }) {
   const colorHex =
-    CATEGORY_COLORS.find((c) => c.value === goal.categoryColor)?.hex ?? "#c46a1f";
+    CATEGORY_COLORS.find((c) => c.value === goal.categoryColor)?.hex ??
+    "var(--saffron)";
 
   let progress = 0;
   let label = "";

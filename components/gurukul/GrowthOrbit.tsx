@@ -20,7 +20,8 @@ export function GrowthOrbit({
   const inner = dim * 0.32;
   const outerSat = 3 + Math.round(habitRatio * 4);
   const innerSat = 3 + Math.round(reflectionRatio * 4);
-  const centerColor = level === "active" ? "#c46a1f" : "#7a8b5c";
+  const centerColor =
+    level === "active" ? "var(--saffron)" : "var(--sage)";
 
   return (
     <div
@@ -48,7 +49,7 @@ export function GrowthOrbit({
               left: `calc(50% - ${outerSat / 2}px)`,
               width: outerSat,
               height: outerSat,
-              boxShadow: "0 0 8px #d4a259",
+              boxShadow: "0 0 8px var(--gold)",
             }}
           />
         </div>

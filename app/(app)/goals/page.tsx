@@ -125,6 +125,10 @@ export default function GoalsPage() {
     })
   }
 
+  if (loading) {
+    return <Loader fullScreen caption="gathering goals…" />
+  }
+
   return (
     <div className="space-y-5 py-2">
       <header className="text-center space-y-1.5 relative">
@@ -216,11 +220,7 @@ export default function GoalsPage() {
 
       {/* ── List ────────────────────────────────────────────────────── */}
       <div className="pt-1">
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader size="md" caption="gathering goals…" />
-          </div>
-        ) : goals.length === 0 ? (
+        {goals.length === 0 ? (
           <div className="rounded-md border border-gold/30 bg-ivory-deep p-6 text-center">
             <p className="font-lyric-italic text-sm text-earth-mid">
               No goals here. Adjust filters, or add a new goal.
@@ -793,6 +793,7 @@ export function GoalFormModal({
 
   return createPortal(
     <div
+      onClick={onClose}
       className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"

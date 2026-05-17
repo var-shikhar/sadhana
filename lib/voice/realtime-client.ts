@@ -18,6 +18,11 @@ const REALTIME_SDP_URL = "https://api.openai.com/v1/realtime/calls";
 export type RealtimeEvent =
   | { type: "connected" }
   | { type: "disconnected"; reason?: string }
+  /** Fired the moment the user's audio buffer is committed (after VAD
+   *  detects end-of-speech) — well BEFORE the Whisper transcript completes.
+   *  CallScreen uses this to lock in the user bubble's position in the
+   *  transcript so the Acharya's response can't slot in front of it. */
+  | { type: "user_audio_committed"; itemId: string }
   | { type: "user_transcript"; text: string; itemId: string }
   | { type: "acharya_transcript_delta"; delta: string; responseId: string }
   | { type: "acharya_transcript_done"; text: string; responseId: string }
@@ -186,68 +191,150 @@ export class RealtimeClient {
       return;
     }
 
-    switch (evt.type) {
-      case "conversation.item.input_audio_transcription.completed": {
-        const text = (evt as { transcript?: string }).transcript ?? "";
-        const itemId = (evt as { item_id?: string }).item_id ?? "";
-        if (text) this.emit({ type: "user_transcript", text, itemId });
-        return;
+    const t = evt.type;
+
+    // User audio buffer committed — fires the moment VAD detects the user
+    // has stopped speaking (well before Whisper finishes transcribing).
+    // CallScreen uses this to insert a placeholder bubble at the right
+    // position so it cannot be reordered after the Acharya's response.
+    if (t === "input_audio_buffer.committed") {
+      const itemId = (evt as { item_id?: string }).item_id ?? "";
+      this.emit({ type: "user_audio_committed", itemId });
+      return;
+    }
+
+    // User audio → text (Whisper). Same event name in Beta and GA.
+    if (
+      t === "conversation.item.input_audio_transcription.completed" ||
+      t === "conversation.item.input_audio_transcription.delta"
+    ) {
+      const text =
+        (evt as { transcript?: string; delta?: string }).transcript ??
+        (evt as { delta?: string }).delta ??
+        "";
+      const itemId = (evt as { item_id?: string }).item_id ?? "";
+      // Only emit on completed — partial transcripts during the user's own
+      // turn aren't surfaced yet (would need a separate event type).
+      if (
+        t === "conversation.item.input_audio_transcription.completed" &&
+        text
+      ) {
+        this.emit({ type: "user_transcript", text, itemId });
       }
-      case "response.audio_transcript.delta": {
-        const delta = (evt as { delta?: string }).delta ?? "";
-        const responseId =
-          (evt as { response_id?: string }).response_id ?? "";
+      return;
+    }
+
+    // Acharya transcript delta — pattern match so GA name variants are
+    // caught structurally rather than by enumerated lists. Matches any
+    // response.* event ending in .delta that carries a `delta` or `text`
+    // field, EXCEPT the function-call-arguments stream (handled below).
+    if (
+      t.startsWith("response.") &&
+      t.endsWith(".delta") &&
+      t !== "response.function_call_arguments.delta" &&
+      t !== "response.audio.delta" // binary audio chunks, not text
+    ) {
+      const delta =
+        (evt as { delta?: string; text?: string }).delta ??
+        (evt as { text?: string }).text ??
+        "";
+      const responseId = (evt as { response_id?: string }).response_id ?? "";
+      if (delta) {
         this.emit({ type: "acharya_transcript_delta", delta, responseId });
-        return;
       }
-      case "response.audio_transcript.done": {
-        const text = (evt as { transcript?: string }).transcript ?? "";
-        const responseId =
-          (evt as { response_id?: string }).response_id ?? "";
+      return;
+    }
+
+    // Acharya transcript done — same pattern logic. Catches GA names like
+    // response.output_audio_transcript.done as well as the Beta
+    // response.audio_transcript.done.
+    if (
+      t.startsWith("response.") &&
+      t.endsWith(".done") &&
+      t !== "response.done" && // top-level response wrap-up, handled below
+      t !== "response.function_call_arguments.done" &&
+      t !== "response.audio.done"
+    ) {
+      const text =
+        (evt as { transcript?: string; text?: string }).transcript ??
+        (evt as { text?: string }).text ??
+        "";
+      const responseId = (evt as { response_id?: string }).response_id ?? "";
+      if (text) {
         this.emit({ type: "acharya_transcript_done", text, responseId });
-        return;
       }
-      case "response.created": {
-        const responseId =
-          (evt as { response?: { id?: string } }).response?.id ?? "";
-        this.emit({ type: "response_started", responseId });
-        return;
+      return;
+    }
+
+    if (t === "response.created") {
+      const responseId =
+        (evt as { response?: { id?: string } }).response?.id ?? "";
+      this.emit({ type: "response_started", responseId });
+      return;
+    }
+
+    if (t === "response.done") {
+      const responseId =
+        (evt as { response?: { id?: string } }).response?.id ?? "";
+      this.emit({ type: "response_done", responseId });
+      return;
+    }
+
+    if (t === "response.function_call_arguments.done") {
+      const argsRaw = (evt as { arguments?: string }).arguments ?? "{}";
+      const name = (evt as { name?: string }).name ?? "";
+      const callId = (evt as { call_id?: string }).call_id ?? "";
+      if (name !== "retrieve_scripture") return;
+      try {
+        const args = JSON.parse(argsRaw) as { query: string; why?: string };
+        this.emit({
+          type: "tool_call",
+          name: "retrieve_scripture",
+          args,
+          callId,
+        });
+      } catch {
+        this.emit({ type: "error", message: "tool args parse failed" });
       }
-      case "response.done": {
-        const responseId =
-          (evt as { response?: { id?: string } }).response?.id ?? "";
-        this.emit({ type: "response_done", responseId });
-        return;
+      return;
+    }
+
+    if (t === "error") {
+      const msg =
+        (evt as { error?: { message?: string } }).error?.message ?? "unknown";
+      this.emit({ type: "error", message: msg });
+      return;
+    }
+
+    // Dev-mode: log unhandled event types so renames or new events can be
+    // spotted and added above. Stripped at build by the bundler when the
+    // environment is "production" via process.env.NODE_ENV check.
+    if (
+      typeof process !== "undefined" &&
+      process.env.NODE_ENV !== "production"
+    ) {
+      // Filter the noisiest events that flow continuously.
+      const ignore = new Set<string>([
+        "response.audio.delta", // binary audio chunks, expected
+        "response.audio.done",
+        "rate_limits.updated",
+        "input_audio_buffer.speech_started",
+        "input_audio_buffer.speech_stopped",
+        // input_audio_buffer.committed is handled above, not ignored
+        "session.created",
+        "session.updated",
+        "conversation.created",
+        "conversation.item.created",
+        "conversation.item.added",
+        "response.output_item.added",
+        "response.output_item.done",
+        "response.content_part.added",
+        "response.content_part.done",
+        "response.function_call_arguments.delta",
+      ]);
+      if (!ignore.has(t)) {
+        console.log("[realtime] unhandled event:", t, evt);
       }
-      case "response.function_call_arguments.done": {
-        const argsRaw = (evt as { arguments?: string }).arguments ?? "{}";
-        const name = (evt as { name?: string }).name ?? "";
-        const callId = (evt as { call_id?: string }).call_id ?? "";
-        if (name !== "retrieve_scripture") return;
-        try {
-          const args = JSON.parse(argsRaw) as { query: string; why?: string };
-          this.emit({
-            type: "tool_call",
-            name: "retrieve_scripture",
-            args,
-            callId,
-          });
-        } catch {
-          this.emit({ type: "error", message: "tool args parse failed" });
-        }
-        return;
-      }
-      case "error": {
-        const msg =
-          (evt as { error?: { message?: string } }).error?.message ??
-          "unknown";
-        this.emit({ type: "error", message: msg });
-        return;
-      }
-      default:
-        // Many events flow through; we only surface the ones above. The rest
-        // are ignored on purpose to keep the API small.
-        return;
     }
   }
 

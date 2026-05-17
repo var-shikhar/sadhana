@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ButtonBare } from "@/components/ui/button";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
+import { Loader } from "@/components/gurukul/Loader";
 import { OmGlyph } from "@/components/gurukul/OmGlyph";
 import { cn } from "@/lib/utils";
 import { useAffirmations } from "@/hooks/useAffirmations";
@@ -103,11 +104,7 @@ export default function AffirmationsPracticePage() {
   // ── Render branches ──
 
   if (loading) {
-    return (
-      <p className="font-lyric-italic text-earth-mid py-6 text-center">
-        Loading…
-      </p>
-    );
+    return <Loader fullScreen caption="preparing the recital…" />;
   }
 
   // Empty library

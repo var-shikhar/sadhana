@@ -6,13 +6,14 @@ import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { PressureLabel } from "@/components/gurukul/PressureLabel";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { MalaBead } from "@/components/gurukul/MalaBead";
+import { Loader } from "@/components/gurukul/Loader";
 import { LotusMandala } from "@/components/ornament/LotusMandala";
 
 export default function MalaPage() {
   const { mala, loading } = useMala();
 
   if (loading) {
-    return <p className="font-lyric-italic text-earth-mid py-6">Loading…</p>;
+    return <Loader fullScreen caption="counting the beads…" />;
   }
 
   if (!mala) {

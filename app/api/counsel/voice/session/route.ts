@@ -126,9 +126,24 @@ export async function POST(request: Request) {
           type: "realtime",
           model: REALTIME_MODEL,
           instructions,
+          // Explicit audio output — paired with audio.output.voice below.
+          // GA emits transcript events alongside audio when this is set.
+          output_modalities: ["audio"],
           audio: {
             input: {
               transcription: { model: "whisper-1" },
+              // Turn-end detection. The default (server_vad with
+              // silence_duration_ms ~200) cuts the user off after the
+              // briefest pause — wrong for a listening companion, where
+              // thoughtful pauses mid-sentence are the norm. semantic_vad
+              // uses a small model to decide if the user is actually done,
+              // and `eagerness: "low"` biases it toward waiting longer.
+              turn_detection: {
+                type: "semantic_vad",
+                eagerness: "low",
+                create_response: true,
+                interrupt_response: true,
+              },
             },
             output: {
               voice: REALTIME_VOICE,

@@ -78,6 +78,9 @@ export function TaskFormModal({
 
   return createPortal(
     <div
+      onClick={() => {
+        if (!submitting) onClose()
+      }}
       className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"

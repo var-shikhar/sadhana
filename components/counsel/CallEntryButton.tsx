@@ -33,7 +33,12 @@ export function CallEntryButton({ className }: CallEntryButtonProps) {
     } catch {
       // ignore
     }
-    router.push(`/counsel/call?lang=${lang}`);
+    // REPLACE rather than push: voice mode is a peer of chat mode, not a
+    // child. We don't want pressing back on voice to land on chat — that
+    // would mean two back-presses to leave Counsel. With replace, chat
+    // and voice share the same history slot, and back from voice goes to
+    // the page that brought the user to Counsel in the first place.
+    router.replace(`/counsel/call?lang=${lang}`);
   }
 
   function toggleLang(e: React.MouseEvent) {

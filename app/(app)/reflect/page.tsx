@@ -15,6 +15,8 @@ import { ReflectionComplete } from "@/components/reflection/ReflectionComplete"
 import { OmGlyph } from "@/components/gurukul/OmGlyph"
 import { SanskritTerm } from "@/components/gurukul/SanskritTerm"
 import { GoldRule } from "@/components/gurukul/GoldRule"
+import { Loader } from "@/components/gurukul/Loader"
+import { Skeleton } from "@/components/gurukul/Skeleton"
 import { LotusMandala } from "@/components/ornament/LotusMandala"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
 
@@ -38,7 +40,7 @@ function flattenReflectionChips(reflection: Reflection): string[] {
 export default function ReflectPage() {
   const { reflection, loading } = useReflection()
   const submit = useSubmitReflection()
-  const { chips: libraryChips } = useReflectionChips()
+  const { chips: libraryChips, loading: chipsLoading } = useReflectionChips()
   const createChip = useCreateReflectionChip()
 
   const [selectedNames, setSelectedNames] = useState<string[]>([])
@@ -153,7 +155,7 @@ export default function ReflectPage() {
   }
 
   if (loading) {
-    return <p className="font-lyric-italic text-earth-mid py-6">Loading...</p>
+    return <Loader fullScreen caption="settling the day…" />
   }
 
   // ── Already submitted today AND not editing: show the sealed ledger. ──
@@ -220,15 +222,28 @@ export default function ReflectPage() {
         </div>
       </div>
 
-      {/* Single chip rail — categories live in the library, not here */}
+      {/* Single chip rail — categories live in the library, not here.
+          Show pill-shimmer skeletons while the library is fetching so the
+          area doesn't read as "no acts available yet." */}
       <div className="relative">
-        <ChipRail
-          libraryChipNames={libraryChipNames}
-          selected={selectedNames}
-          pausedNames={pausedChipNames}
-          onToggle={toggleChip}
-          onCreate={handleCreateChip}
-        />
+        {chipsLoading ? (
+          <div className="flex flex-wrap gap-1.5" aria-hidden="true">
+            {[64, 88, 52, 76, 60, 80, 56, 68, 72].map((w, i) => (
+              <div key={i} style={{ width: w }}>
+                <Skeleton className="h-7 w-full rounded-full" />
+              </div>
+            ))}
+            <span className="sr-only">Loading reflection chips</span>
+          </div>
+        ) : (
+          <ChipRail
+            libraryChipNames={libraryChipNames}
+            selected={selectedNames}
+            pausedNames={pausedChipNames}
+            onToggle={toggleChip}
+            onCreate={handleCreateChip}
+          />
+        )}
       </div>
 
       {/* Day summary — sealing the day */}

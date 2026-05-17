@@ -461,6 +461,9 @@ export default function GoalDetailPage({
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={() => {
+              if (!remove.isPending) setArchiveOpen(false)
+            }}
             className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"
@@ -512,6 +515,9 @@ export default function GoalDetailPage({
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={() => {
+              if (!update.isPending) setStatusModalOpen(null)
+            }}
             className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"
@@ -734,6 +740,7 @@ function EditGoalModal({
 
   return createPortal(
     <div
+      onClick={onClose}
       className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"
@@ -1232,6 +1239,7 @@ function ActivationConflictModal({
 
   return createPortal(
     <div
+      onClick={onClose}
       className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"

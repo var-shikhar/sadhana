@@ -147,12 +147,18 @@ export function ChipRail({
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={() => {
+              if (!submitting) closeModal()
+            }}
             className="fixed inset-0 z-100 flex items-center justify-center px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"
             aria-label="Add a new act"
           >
-            <div className="w-full max-w-sm rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-2xl border border-gold/40 bg-ivory-deep p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            >
               <div className="space-y-1">
                 <h3 className="font-pressure-caps text-[11px] tracking-[2px] text-earth-deep">
                   Add an act

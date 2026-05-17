@@ -15,8 +15,8 @@ function FlameIndicator({ filled }: { filled: boolean }) {
       aria-hidden="true"
       className="inline-block flex-1 h-1.5 rounded-full transition-colors"
       style={{
-        background: filled ? "#c46a1f" : "#f4ecd8",
-        border: "1px solid #d4a259",
+        background: filled ? "var(--saffron)" : "var(--ivory-deep)",
+        border: "1px solid var(--gold)",
       }}
     />
   );

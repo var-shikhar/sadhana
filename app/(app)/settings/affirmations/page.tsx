@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button, ButtonBare } from "@/components/ui/button"
 import { LabelTiny } from "@/components/gurukul/LabelTiny"
 import { GoldRule } from "@/components/gurukul/GoldRule"
+import { Loader } from "@/components/gurukul/Loader"
 import { cn } from "@/lib/utils"
 import {
   useAffirmations,
@@ -138,11 +139,7 @@ export default function AffirmationsSettingsPage() {
   }
 
   if (loading) {
-    return (
-      <p className="font-lyric-italic text-earth-mid py-6 text-center">
-        Loading…
-      </p>
-    )
+    return <Loader fullScreen caption="gathering your mantras…" />
   }
 
   return (
@@ -269,6 +266,9 @@ export default function AffirmationsSettingsPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={() => {
+              if (!create.isPending) closeAdd()
+            }}
             className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"
@@ -361,6 +361,7 @@ export default function AffirmationsSettingsPage() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            onClick={cancelEdit}
             className="fixed inset-0 z-100 flex items-end sm:items-center justify-center sm:px-4 bg-ink/55 backdrop-blur-sm animate-in fade-in duration-150"
             role="dialog"
             aria-modal="true"

@@ -5,14 +5,13 @@ import { FolioCarousel } from "@/components/archive/FolioCarousel";
 import { LabelTiny } from "@/components/gurukul/LabelTiny";
 import { GoldRule } from "@/components/gurukul/GoldRule";
 import { PressureLabel } from "@/components/gurukul/PressureLabel";
+import { Loader } from "@/components/gurukul/Loader";
 
 export default function ArchivePage() {
   const { reflections, loading } = useArchive();
 
   if (loading) {
-    return (
-      <p className="font-lyric-italic text-earth-mid py-6">Opening the folio...</p>
-    );
+    return <Loader fullScreen caption="opening the folio…" />;
   }
 
   if (reflections.length === 0) {

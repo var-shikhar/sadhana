@@ -33,7 +33,7 @@ export function HabitDot({ state, size = 14, className, delayMs = 0 }: HabitDotP
       style={{
         width: size,
         height: size,
-        background: "radial-gradient(circle, #c46a1f, transparent 75%)",
+        background: "radial-gradient(circle, var(--saffron), transparent 75%)",
         animation: "var(--animate-bloom)",
         animationDelay: `${delayMs}ms`,
       }}
