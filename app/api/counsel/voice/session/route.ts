@@ -20,6 +20,15 @@ import {
 
 const REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime";
 const REALTIME_VOICE = process.env.OPENAI_REALTIME_VOICE || "cedar";
+// Transcription model for the user's speech → text. Options on OpenAI:
+//   gpt-4o-mini-transcribe  — recommended default. Better punctuation
+//                             and fewer hallucinations than whisper-1,
+//                             same ~$0.003/min ballpark.
+//   gpt-4o-transcribe       — highest quality, ~$0.006/min.
+//   whisper-1               — legacy fallback.
+// Override via env if you want to A/B without code changes.
+const TRANSCRIPTION_MODEL =
+  process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe";
 
 interface RequestBody {
   language?: Language;
@@ -131,7 +140,7 @@ export async function POST(request: Request) {
           output_modalities: ["audio"],
           audio: {
             input: {
-              transcription: { model: "whisper-1" },
+              transcription: { model: TRANSCRIPTION_MODEL },
               // Turn-end detection. The default (server_vad with
               // silence_duration_ms ~200) cuts the user off after the
               // briefest pause — wrong for a listening companion, where

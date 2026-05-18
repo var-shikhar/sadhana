@@ -15,7 +15,8 @@ const META: Record<Palette, { label: string; gloss: string }> = {
 };
 
 /**
- * Dev-only Settings affordance for switching the visual palette at runtime.
+ * Settings affordance for switching the visual palette at runtime. Visibility
+ * is gated by the `SHOW_PALETTE_TOGGLE` env var on the parent server page.
  * Writes a `sadhana_palette` cookie via a server action, then refreshes the
  * router so the root layout re-resolves the palette from the new cookie.
  */
@@ -60,7 +61,7 @@ export function PaletteToggle({ active }: { active: Palette }) {
       )}
 
       <div>
-        <LabelTiny>Aspect · visual mode (dev only)</LabelTiny>
+        <LabelTiny>Aspect · visual mode</LabelTiny>
         <p className="font-lyric-italic text-[11px] text-earth-mid mt-0.5">
           Switch the palette without a dev-server restart. Persists across reloads.
         </p>

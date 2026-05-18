@@ -67,6 +67,22 @@ feature work and check the proposed change against it. When a
 load-bearing decision is made in conversation, ask whether it
 belongs in AGENDA.md before considering it settled.
 
+# No env files with secrets
+
+Do not read, open, grep, or write to `.env`, `.env.local`,
+`.env.development`, `.env.dev`, `.env.production`, `.env.staging`, or
+any sibling file that holds real secrets. That includes peeking at
+them just to confirm a value exists. The only env file you are
+allowed to touch is `.env.example` (and other clearly-named template
+files that ship no real credentials).
+
+If a task needs a new env var, describe the variable name, an
+example value, and the file the user should add it to — then let the
+user edit the secret-bearing file themselves. If you need to know
+whether a variable is already set, ask the user; do not read or grep
+the file to find out. The IDE showing a `.env.*` file as "opened"
+does not constitute permission to read it.
+
 # No git commands
 
 Do not run any git commands. That includes `pull`, `push`, `commit`,

@@ -20,6 +20,10 @@ import { useCounselStore } from "@/lib/stores/counsel";
 import { MAX_CALL_SECONDS } from "@/lib/voice/constants";
 import { ButtonBare } from "@/components/ui/button";
 import { OmGlyph } from "@/components/gurukul/OmGlyph";
+import {
+  attachNoiseFilter,
+  type NoiseFilterHandle,
+} from "@/lib/audio/noise-filter";
 
 interface CallScreenProps {
   language: "en" | "hi";
@@ -33,6 +37,7 @@ export function CallScreen({ language }: CallScreenProps) {
   const monitorRef = useRef<ReturnType<typeof attachCrisisMonitor> | null>(
     null
   );
+  const noiseFilterRef = useRef<NoiseFilterHandle | null>(null);
   const turnsRef = useRef<VoiceTurn[]>([]);
   /** Verses fetched between the current tool call and the next acharya_done.
    *  When the next acharya turn finishes, these citations are stamped on it. */
@@ -43,7 +48,14 @@ export function CallScreen({ language }: CallScreenProps) {
 
   const [status, setStatus] = useState<CallStatusKind>("idle");
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  /** Raw mic — used for the mute toggle and final track cleanup. */
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  /** Filtered (post-RNNoise) version of the mic — what we actually send
+   *  to OpenAI AND what we drive the visualizer off of, so the orb only
+   *  reacts to audio the model is actually hearing (not the noise the
+   *  filter is silencing). */
+  const [filteredLocalStream, setFilteredLocalStream] =
+    useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [allVerses, setAllVerses] = useState<VoiceVerse[]>([]);
@@ -93,15 +105,52 @@ export function CallScreen({ language }: CallScreenProps) {
     (async () => {
       setStatus("connecting");
       try {
+        // Explicit audio constraints — most browsers default these to true
+        // for `audio: true`, but pinning them ensures consistent behavior
+        // across Chrome / Edge / Safari and signals intent. Mono + 16 kHz
+        // hint match Whisper/GPT-transcribe's expected input shape, so the
+        // browser doesn't waste bits resampling stereo 48 kHz upstream.
         const mic = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            // 48 kHz = audio sampling RESOLUTION (samples/sec), not speech
+            // speed. Has nothing to do with how fast or slow the user
+            // talks — it's just the rate at which the mic digitizes audio.
+            // RNNoise was trained at 48 kHz so we align the source to
+            // avoid double-resampling. Turn-end detection (which DOES
+            // affect slow speakers) is configured via `turn_detection`
+            // in app/api/counsel/voice/session/route.ts — set there to
+            // semantic_vad with eagerness: "low" for patient pause-handling.
+            sampleRate: 48000,
+          },
           video: false,
         });
         if (cancelled) {
           mic.getTracks().forEach((t) => t.stop());
           return;
         }
+
+        // Route mic through RNNoise. If anything fails (unsupported browser,
+        // WASM 404, etc.), attachNoiseFilter falls back to the raw mic and
+        // logs the reason — the call still works.
+        const filter = await attachNoiseFilter(mic);
+        if (cancelled) {
+          filter.dispose();
+          mic.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        noiseFilterRef.current = filter;
+
+        // localStream holds the RAW mic (for mute toggle + final teardown).
+        // filteredLocalStream holds the post-RNNoise stream — fed into
+        // BOTH the realtime client (below) AND the visualizer (so the orb
+        // only reacts to what the model actually hears, not to noise the
+        // filter is silencing).
         setLocalStream(mic);
+        setFilteredLocalStream(filter.outputStream);
 
         const sessRes = await fetch("/api/counsel/voice/session", {
           method: "POST",
@@ -273,7 +322,8 @@ export function CallScreen({ language }: CallScreenProps) {
           }
         });
 
-        await client.connect(mic);
+        // Hand the DENOISED stream to WebRTC, not the raw mic.
+        await client.connect(filter.outputStream);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Call failed to start";
         setErrorMessage(msg);
@@ -393,11 +443,13 @@ export function CallScreen({ language }: CallScreenProps) {
       }).catch(() => undefined);
     }
 
-    // 3. Tear down peer connection + local stream
+    // 3. Tear down peer connection + noise filter + local stream
     clientRef.current?.disconnect();
     clientRef.current = null;
     monitorRef.current?.dispose();
     monitorRef.current = null;
+    noiseFilterRef.current?.dispose();
+    noiseFilterRef.current = null;
     localStream?.getTracks().forEach((t) => t.stop());
   }
 
@@ -481,7 +533,7 @@ export function CallScreen({ language }: CallScreenProps) {
         {/* Live transcript — what was said, on a live basis */}
         <div
           ref={transcriptScrollRef}
-          className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-3"
+          className="call-transcript-scroll flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-3"
         >
           {liveTranscript.length === 0 && status === "connecting" && (
             <p className="text-center text-parchment/30 font-lyric-italic text-sm mt-8">
@@ -526,14 +578,42 @@ export function CallScreen({ language }: CallScreenProps) {
             .animate-bubble-in {
               animation: bubble-in 220ms ease-out both;
             }
+
+            /* Themed scrollbar — slim, saffron-tinted, blends into the
+               dark Counsel background instead of shouting in OS-default white. */
+            .call-transcript-scroll {
+              scrollbar-width: thin;
+              scrollbar-color: rgba(241, 149, 60, 0.18) transparent;
+              scrollbar-gutter: stable;
+            }
+            .call-transcript-scroll::-webkit-scrollbar {
+              width: 5px;
+            }
+            .call-transcript-scroll::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .call-transcript-scroll::-webkit-scrollbar-thumb {
+              background: rgba(241, 149, 60, 0.18);
+              border-radius: 9999px;
+            }
+            .call-transcript-scroll::-webkit-scrollbar-thumb:hover {
+              background: rgba(241, 149, 60, 0.34);
+            }
+            .call-transcript-scroll::-webkit-scrollbar-corner {
+              background: transparent;
+            }
           `}</style>
         </div>
 
         {/* Orb + status — sits below the transcript */}
         <div className="flex flex-col items-center justify-center gap-3 pt-2 pb-28">
+          {/* Orb reacts to the USER's filtered mic input only — never to
+              the Acharya's voice. When the Acharya is speaking, the orb
+              stays in its ambient breathe so the visual doesn't lie about
+              what's being listened to. */}
           <VoiceOrb
-            remoteStream={remoteStream}
-            localStream={localStream}
+            remoteStream={null}
+            localStream={filteredLocalStream ?? localStream}
             size={200}
           />
           <CallStatus status={status} language={language} />

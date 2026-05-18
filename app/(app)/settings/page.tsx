@@ -41,7 +41,7 @@ export default async function SettingsPage() {
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get(PALETTE_COOKIE_NAME)?.value;
   const activePalette = resolvePalette(cookieValue, process.env.NEXT_PUBLIC_PALETTE);
-  const showPaletteToggle = process.env.NODE_ENV === "development";
+  const showPaletteToggle = process.env.SHOW_PALETTE_TOGGLE === "true";
 
   return (
     <div className="space-y-6 py-2 relative">
